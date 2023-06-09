@@ -1,0 +1,14 @@
+D:\00-FactEngine\01-Product\01-Products\KuzuDB-net\KuzuDB-net\KuzuDB-Net\KuzuDB-TestAndExplore\bin\Debug\KuzuDB-TestAndExplorer.exe.config
+D:\00-FactEngine\01-Product\01-Products\KuzuDB-net\KuzuDB-net\KuzuDB-Net\KuzuDB-TestAndExplore\bin\Debug\KuzuDB-TestAndExplorer.exe
+D:\00-FactEngine\01-Product\01-Products\KuzuDB-net\KuzuDB-net\KuzuDB-Net\KuzuDB-TestAndExplore\bin\Debug\KuzuDB-TestAndExplorer.pdb
+D:\00-FactEngine\01-Product\01-Products\KuzuDB-net\KuzuDB-net\KuzuDB-Net\KuzuDB-TestAndExplore\bin\Debug\KuzuDB-TestAndExplorer.xml
+D:\00-FactEngine\01-Product\01-Products\KuzuDB-net\KuzuDB-net\KuzuDB-Net\KuzuDB-TestAndExplore\obj\Debug\KuzuDB-TestAndExplorer.vbproj.AssemblyReference.cache
+D:\00-FactEngine\01-Product\01-Products\KuzuDB-net\KuzuDB-net\KuzuDB-Net\KuzuDB-TestAndExplore\obj\Debug\KuzuDB_TestAndExplorer.Resources.resources
+D:\00-FactEngine\01-Product\01-Products\KuzuDB-net\KuzuDB-net\KuzuDB-Net\KuzuDB-TestAndExplore\obj\Debug\KuzuDB-TestAndExplorer.vbproj.GenerateResource.cache
+D:\00-FactEngine\01-Product\01-Products\KuzuDB-net\KuzuDB-net\KuzuDB-Net\KuzuDB-TestAndExplore\obj\Debug\KuzuDB-TestAndExplorer.vbproj.CoreCompileInputs.cache
+D:\00-FactEngine\01-Product\01-Products\KuzuDB-net\KuzuDB-net\KuzuDB-Net\KuzuDB-TestAndExplore\obj\Debug\KuzuDB-TestAndExplorer.vbproj.CopyComplete
+D:\00-FactEngine\01-Product\01-Products\KuzuDB-net\KuzuDB-net\KuzuDB-Net\KuzuDB-TestAndExplore\obj\Debug\KuzuDB-TestAndExplorer.exe
+D:\00-FactEngine\01-Product\01-Products\KuzuDB-net\KuzuDB-net\KuzuDB-Net\KuzuDB-TestAndExplore\obj\Debug\KuzuDB-TestAndExplorer.xml
+D:\00-FactEngine\01-Product\01-Products\KuzuDB-net\KuzuDB-net\KuzuDB-Net\KuzuDB-TestAndExplore\obj\Debug\KuzuDB-TestAndExplorer.pdb
+D:\00-FactEngine\01-Product\01-Products\KuzuDB-net\KuzuDB-net\KuzuDB-Net\KuzuDB-TestAndExplore\bin\Debug\KuzuDB.dll
+D:\00-FactEngine\01-Product\01-Products\KuzuDB-net\KuzuDB-net\KuzuDB-Net\KuzuDB-TestAndExplore\bin\Debug\KuzuDB.pdb

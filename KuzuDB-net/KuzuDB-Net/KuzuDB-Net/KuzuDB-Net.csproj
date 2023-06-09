@@ -1,0 +1,72 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{FFFC5493-3AF3-403C-81AE-A4B7C0285DC8}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>KuzuDB</RootNamespace>
+    <AssemblyName>KuzuDB</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="WrapperFiles\KuzuDB.cs" />
+    <Compile Include="WrapperFiles\KuzuDBPINVOKE.cs" />
+    <Compile Include="WrapperFiles\kuzu_connection.cs" />
+    <Compile Include="WrapperFiles\kuzu_database.cs" />
+    <Compile Include="WrapperFiles\kuzu_data_type_id.cs" />
+    <Compile Include="WrapperFiles\kuzu_date_t.cs" />
+    <Compile Include="WrapperFiles\kuzu_flat_tuple.cs" />
+    <Compile Include="WrapperFiles\kuzu_internal_id_t.cs" />
+    <Compile Include="WrapperFiles\kuzu_interval_t.cs" />
+    <Compile Include="WrapperFiles\kuzu_logical_type.cs" />
+    <Compile Include="WrapperFiles\kuzu_node_val.cs" />
+    <Compile Include="WrapperFiles\kuzu_prepared_statement.cs" />
+    <Compile Include="WrapperFiles\kuzu_query_result.cs" />
+    <Compile Include="WrapperFiles\kuzu_query_summary.cs" />
+    <Compile Include="WrapperFiles\kuzu_rel_val.cs" />
+    <Compile Include="WrapperFiles\kuzu_timestamp_t.cs" />
+    <Compile Include="WrapperFiles\kuzu_value.cs" />
+    <Compile Include="WrapperFiles\SWIGTYPE_p_int16_t.cs" />
+    <Compile Include="WrapperFiles\SWIGTYPE_p_int32_t.cs" />
+    <Compile Include="WrapperFiles\SWIGTYPE_p_int64_t.cs" />
+    <Compile Include="WrapperFiles\SWIGTYPE_p_uint64_t.cs" />
+    <Compile Include="WrapperFiles\SWIGTYPE_p_void.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="WrapperFiles\KuzuDB_wrap.cxx" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

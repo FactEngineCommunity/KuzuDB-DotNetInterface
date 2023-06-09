@@ -8,6 +8,7 @@ An example SWIG CLI command to generate the files is provided (SWIG-CLI-Command.
 # Folders Are
 - KuzuDB-Net
     - Contains a C# project to create the DLL
+        - Wrapper files output from SWIG are included in this project, to generate the DLL.
     - Contains a VB.Net project to test the DLL
 
 - KuzuFiles

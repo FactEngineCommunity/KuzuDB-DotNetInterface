@@ -3,6 +3,8 @@
 
 SWIG (www.swig.org) is used to automatically generate C# wrapper code to operate over the Kuzu database .lib file.
 
+An example SWIG CLI command to generate the files is provided (SWIG-CLI-Command.txt) (above).
+
 # Folders Are
 - KuzuDB-Net
     - Contains a C# project to create the DLL

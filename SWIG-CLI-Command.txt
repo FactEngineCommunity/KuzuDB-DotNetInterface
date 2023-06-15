@@ -1,1 +1,7 @@
-﻿swig -csharp -namespace KuzuDB -dllimport KuzuDB.dll -I"F:\Program Files\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\include" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\ucrt" -outdir ".\KuzuDB" -module KuzuDB -o KuzuDB_wrap.cxx -cpperraswarn -v KuzuSWIGInterface.i
+﻿Victor's successful SWIG command line statement (keep)
+========================================================
+ 
+ swig -csharp -namespace KuzuDB -dllimport KuzuDB.dll -I"F:\Program Files\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\include" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\ucrt" -outdir ".\KuzuDB" -module KuzuDB -o KuzuDB_wrap.cxx -cpperraswarn -v KuzuSWIGInterface.i
+ 
+ Nurullah's successful SWIG command line statement
+ ==================================================

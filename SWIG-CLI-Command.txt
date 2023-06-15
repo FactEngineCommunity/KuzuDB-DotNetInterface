@@ -5,3 +5,5 @@
  
  Nurullah's successful SWIG command line statement
  ==================================================
+
+ swig -c++ -csharp -IKuzuFiles/ -outdir "KuzuFiles/generated_classes/" -o wrapperlib/kuzu_wrap.cpp SWIG-InputFile/kuzu.i

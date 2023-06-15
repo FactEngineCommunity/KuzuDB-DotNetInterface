@@ -1,11 +1,53 @@
-﻿Imports KuzuDB
-
+﻿Imports kuzunet
 Public Class frmMain
     Private Sub frmMain_Load(sender As Object, e As EventArgs) Handles Me.Load
 
-        Dim lrKuzuDB As New KuzuDB.KuzuDB
+        Dim db As kuzu_database = kuzu_database_init("test", 0)
+        Dim conn As kuzu_connection = kuzu_connection_init(db)
 
-        Dim databaseConfig As New KuzuDB.kuzu_connection()
+        Dim result As kuzu_query_result = kuzu_connection_query(conn, "CREATE NODE TABLE User(name STRING, age INT64, PRIMARY KEY (name))")
+        kuzu_query_result_destroy(result)
+        result = kuzu_connection_query(conn, "CREATE NODE TABLE City(name STRING, population INT64, PRIMARY KEY (name))")
+        kuzu_query_result_destroy(result)
+        result = kuzu_connection_query(conn, "CREATE REL TABLE Follows(FROM User TO User, since INT64)")
+        kuzu_query_result_destroy(result)
+        result = kuzu_connection_query(conn, "CREATE REL TABLE LivesIn(FROM User TO City)")
+        kuzu_query_result_destroy(result)
+
+        result = kuzu_connection_query(conn, "COPY User FROM ""csvs/users.csv""")
+        kuzu_query_result_destroy(result)
+        result = kuzu_connection_query(conn, "COPY City FROM ""csvs/cities.csv""")
+        kuzu_query_result_destroy(result)
+        result = kuzu_connection_query(conn, "COPY Follows FROM ""csvs/follows.csv""")
+        kuzu_query_result_destroy(result)
+        result = kuzu_connection_query(conn, "COPY LivesIn FROM ""csvs/lives_in.csv""")
+        kuzu_query_result_destroy(result)
+
+        result = kuzu_connection_query(conn, "MATCH (a:User)-[f:Follows]->(b:User) RETURN a.name, f.since, b.name;")
+
+        While (kuzu_query_result_has_next(result))
+            Dim tuple As kuzu_flat_tuple = kuzu_query_result_get_next(result)
+
+            Dim value As kuzu_value = kuzu_flat_tuple_get_value(tuple, 0)
+            Dim name As String = kuzu_value_get_string(value)
+            kuzu_value_destroy(value)
+
+            value = kuzu_flat_tuple_get_value(tuple, 1)
+            Dim since As Long = kuzu_value_get_int64(value)
+            kuzu_value_destroy(value)
+
+            value = kuzu_flat_tuple_get_value(tuple, 2)
+            Dim name2 As String = kuzu_value_get_string(value)
+            kuzu_value_destroy(value)
+
+            MessageBox.Show(String.Format("{0} follows {1} since {2}", name, name2, since))
+            kuzu_flat_tuple_destroy(tuple)
+        End While
+
+
+        kuzu_query_result_destroy(result)
+        kuzu_connection_destroy(conn)
+        kuzu_database_destroy(db)
 
         Debugger.Break()
 

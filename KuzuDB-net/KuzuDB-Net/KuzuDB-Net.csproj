@@ -9,9 +9,10 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>KuzuDB</RootNamespace>
     <AssemblyName>KuzuDB</AssemblyName>
-    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -30,6 +31,24 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -42,8 +61,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="WrapperFiles\KuzuDB.cs" />
-    <Compile Include="WrapperFiles\KuzuDBPINVOKE.cs" />
+    <Compile Include="WrapperFiles\kuzunet.cs" />
+    <Compile Include="WrapperFiles\kuzunetPINVOKE.cs" />
     <Compile Include="WrapperFiles\kuzu_connection.cs" />
     <Compile Include="WrapperFiles\kuzu_database.cs" />
     <Compile Include="WrapperFiles\kuzu_data_type_id.cs" />
@@ -59,14 +78,15 @@
     <Compile Include="WrapperFiles\kuzu_rel_val.cs" />
     <Compile Include="WrapperFiles\kuzu_timestamp_t.cs" />
     <Compile Include="WrapperFiles\kuzu_value.cs" />
-    <Compile Include="WrapperFiles\SWIGTYPE_p_int16_t.cs" />
-    <Compile Include="WrapperFiles\SWIGTYPE_p_int32_t.cs" />
-    <Compile Include="WrapperFiles\SWIGTYPE_p_int64_t.cs" />
-    <Compile Include="WrapperFiles\SWIGTYPE_p_uint64_t.cs" />
     <Compile Include="WrapperFiles\SWIGTYPE_p_void.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="WrapperFiles\KuzuDB_wrap.cxx" />
+    <Content Include="kuzunet.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="kuzu_shared.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

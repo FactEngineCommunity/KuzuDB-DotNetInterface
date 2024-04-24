@@ -25,3 +25,12 @@ An example SWIG CLI command to generate the files is provided (SWIG-CLI-Command.
 
 # Collaboration Welcome
 Want to chip in? Sing out to contribute to this project.
+
+# Usage (VB.Net)
+Imports kuzunet
+
+Put the following files in your .exe directory:
+kuzu_shared.dll
+KuzuDB.dll
+kuzunet.dll
+libkuzu.lib

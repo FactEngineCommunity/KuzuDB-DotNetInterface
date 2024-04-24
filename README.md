@@ -17,8 +17,8 @@ An example SWIG CLI command to generate the files is provided (SWIG-CLI-Command.
 - SWIG-Input File
     - Contains the .i (input file) used in the SWIG command to generate the C# wrapper files
 
-# Precompiled DLLs Are
-- In DotNetInterface/KuzuDB-net/KuzuDB-Net/bin/Debug/
+# Precompiled DLLs Are In:
+- DotNetInterface/KuzuDB-net/KuzuDB-Net/bin/Debug/
 
 # Test Program is in
 - KuzuDB-DotNetInterface/KuzuDB-net/KuzuDB-TestAndExplore

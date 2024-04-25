@@ -1,3 +1,6 @@
+#define KUZU_EXPORTS
+#define _WIN32
+
 %module kuzunet
 %{
 /* Put header files here or function declarations like below */

@@ -1,0 +1,34 @@
+#
+# Kuzu lib files (have to be inserted manually)
+#
+
+KuzuFiles/*.h
+KuzuFiles/*.hpp
+KuzuFiles/*.dll
+KuzuFiles/*.lib
+
+#
+# SWIG generated classes (have to be generated)
+#
+
+KuzuFiles/generated_classes/**
+wrapperlib/kuzu_wrap.cpp
+
+#
+# Cmake and build files
+#
+
+wrapperlib/build/**
+
+#
+# Visual studio files
+#
+
+**/.vs/*
+
+#
+# VS build files
+#
+
+**/bin/*
+**/obj/*

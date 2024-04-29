@@ -1,3 +1,0 @@
-C:/Users/nciri/Desktop/Projects/KuzuDB-net/wrapperlib/build/CMakeFiles/kuzunet.dir
-C:/Users/nciri/Desktop/Projects/KuzuDB-net/wrapperlib/build/CMakeFiles/edit_cache.dir
-C:/Users/nciri/Desktop/Projects/KuzuDB-net/wrapperlib/build/CMakeFiles/rebuild_cache.dir

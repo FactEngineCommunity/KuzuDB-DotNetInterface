@@ -1,7 +1,0 @@
-C:\Users\nciri\Desktop\Projects\KuzuDB-net\KuzuDB-net\KuzuDB-Net\bin\x64\Debug\kuzunet.dll
-C:\Users\nciri\Desktop\Projects\KuzuDB-net\KuzuDB-net\KuzuDB-Net\bin\x64\Debug\kuzu_shared.dll
-C:\Users\nciri\Desktop\Projects\KuzuDB-net\KuzuDB-net\KuzuDB-Net\bin\x64\Debug\KuzuDB.dll
-C:\Users\nciri\Desktop\Projects\KuzuDB-net\KuzuDB-net\KuzuDB-Net\bin\x64\Debug\KuzuDB.pdb
-C:\Users\nciri\Desktop\Projects\KuzuDB-net\KuzuDB-net\KuzuDB-Net\obj\x64\Debug\KuzuDB-Net.csproj.CoreCompileInputs.cache
-C:\Users\nciri\Desktop\Projects\KuzuDB-net\KuzuDB-net\KuzuDB-Net\obj\x64\Debug\KuzuDB.dll
-C:\Users\nciri\Desktop\Projects\KuzuDB-net\KuzuDB-net\KuzuDB-Net\obj\x64\Debug\KuzuDB.pdb

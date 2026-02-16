@@ -34,402 +34,9 @@
 #ifndef KUZU_DEPRECATED_EXPORT
 #define KUZU_DEPRECATED_EXPORT KUZU_API KUZU_DEPRECATED
 #endif
-
-#include <cstdint>
-#include <cstring>
-#include <string>
-
-namespace kuzu {
-namespace common {
-
-struct ku_string_t {
-
-    static constexpr uint64_t PREFIX_LENGTH = 4;
-    static constexpr uint64_t INLINED_SUFFIX_LENGTH = 8;
-    static constexpr uint64_t SHORT_STR_LENGTH = PREFIX_LENGTH + INLINED_SUFFIX_LENGTH;
-
-    uint32_t len;
-    uint8_t prefix[PREFIX_LENGTH];
-    union {
-        uint8_t data[INLINED_SUFFIX_LENGTH];
-        uint64_t overflowPtr;
-    };
-
-    ku_string_t() : len{0}, overflowPtr{0} {}
-    ku_string_t(const char* value, uint64_t length);
-
-    static bool isShortString(uint32_t len) { return len <= SHORT_STR_LENGTH; }
-
-    inline const uint8_t* getData() const {
-        return isShortString(len) ? prefix : reinterpret_cast<uint8_t*>(overflowPtr);
-    }
-
-    // These functions do *NOT* allocate/resize the overflow buffer, it only copies the content and
-    // set the length.
-    void set(const std::string& value);
-    void set(const char* value, uint64_t length);
-    void set(const ku_string_t& value);
-    inline void setShortString(const char* value, uint64_t length) {
-        this->len = length;
-        memcpy(prefix, value, length);
-    }
-    inline void setLongString(const char* value, uint64_t length) {
-        this->len = length;
-        memcpy(prefix, value, PREFIX_LENGTH);
-        memcpy(reinterpret_cast<char*>(overflowPtr), value, length);
-    }
-    inline void setShortString(const ku_string_t& value) {
-        this->len = value.len;
-        memcpy(prefix, value.prefix, value.len);
-    }
-    inline void setLongString(const ku_string_t& value) {
-        this->len = value.len;
-        memcpy(prefix, value.prefix, PREFIX_LENGTH);
-        memcpy(reinterpret_cast<char*>(overflowPtr), reinterpret_cast<char*>(value.overflowPtr),
-            value.len);
-    }
-
-    void setFromRawStr(const char* value, uint64_t length) {
-        this->len = length;
-        if (isShortString(length)) {
-            setShortString(value, length);
-        } else {
-            memcpy(prefix, value, PREFIX_LENGTH);
-            overflowPtr = reinterpret_cast<uint64_t>(value);
-        }
-    }
-
-    std::string getAsShortString() const;
-    std::string getAsString() const;
-    std::string_view getAsStringView() const;
-
-    bool operator==(const ku_string_t& rhs) const;
-
-    inline bool operator!=(const ku_string_t& rhs) const { return !(*this == rhs); }
-
-    bool operator>(const ku_string_t& rhs) const;
-
-    inline bool operator>=(const ku_string_t& rhs) const { return (*this > rhs) || (*this == rhs); }
-
-    inline bool operator<(const ku_string_t& rhs) const { return !(*this >= rhs); }
-
-    inline bool operator<=(const ku_string_t& rhs) const { return !(*this > rhs); }
-};
-
-} // namespace common
-} // namespace kuzu
-
-#include <cstdint>
-
-namespace kuzu {
-
-namespace testing {
-class BaseGraphTest;
-class PrivateGraphTest;
-class TestHelper;
-class TestRunner;
-class TinySnbDDLTest;
-class TinySnbCopyCSVTransactionTest;
-} // namespace testing
-
-namespace benchmark {
-class Benchmark;
-} // namespace benchmark
-
-namespace binder {
-class Expression;
-class BoundStatementResult;
-class PropertyExpression;
-} // namespace binder
-
-namespace catalog {
-class Catalog;
-} // namespace catalog
-
-namespace common {
-enum class StatementType : uint8_t;
-class Value;
-struct FileInfo;
-class VirtualFileSystem;
-} // namespace common
-
-namespace storage {
-class MemoryManager;
-class BufferManager;
-class StorageManager;
-class WAL;
-enum class WALReplayMode : uint8_t;
-} // namespace storage
-
-namespace planner {
-class LogicalPlan;
-} // namespace planner
-
-namespace processor {
-class QueryProcessor;
-class FactorizedTable;
-class FlatTupleIterator;
-class PhysicalOperator;
-class PhysicalPlan;
-} // namespace processor
-
-namespace transaction {
-class Transaction;
-class TransactionManager;
-class TransactionContext;
-} // namespace transaction
-
-} // namespace kuzu
-
-namespace spdlog {
-class logger;
-namespace level {
-enum level_enum : int;
-} // namespace level
-} // namespace spdlog
-
-#include <cstdint>
-
-namespace kuzu {
-namespace common {
-
-enum class ColumnDataFormat : uint8_t { REGULAR = 0, CSR = 1 };
-
-}
-} // namespace kuzu
-
-#include <cstdint>
-#include <string>
-
-namespace kuzu {
-namespace common {
-
-enum class TableType : uint8_t {
-    UNKNOWN = 0,
-    NODE = 1,
-    REL = 2,
-    RDF = 3,
-    REL_GROUP = 4,
-};
-
-struct TableTypeUtils {
-    static std::string toString(TableType tableType);
-};
-
-} // namespace common
-} // namespace kuzu
-
-#include <cstdint>
-#include <string_view>
-
-namespace kuzu {
-namespace common {
-
-extern const char* KUZU_VERSION;
-
-constexpr uint64_t DEFAULT_VECTOR_CAPACITY_LOG_2 = 11;
-constexpr uint64_t DEFAULT_VECTOR_CAPACITY = (uint64_t)1 << DEFAULT_VECTOR_CAPACITY_LOG_2;
-
-constexpr double DEFAULT_HT_LOAD_FACTOR = 1.5;
-constexpr uint32_t DEFAULT_VAR_LENGTH_EXTEND_MAX_DEPTH = 30;
-constexpr bool DEFAULT_ENABLE_SEMI_MASK = true;
-
-// This is the default thread sleep time we use when a thread,
-// e.g., a worker thread is in TaskScheduler, needs to block.
-constexpr uint64_t THREAD_SLEEP_TIME_WHEN_WAITING_IN_MICROS = 500;
-
-constexpr uint64_t DEFAULT_CHECKPOINT_WAIT_TIMEOUT_FOR_TRANSACTIONS_TO_LEAVE_IN_MICROS = 5000000;
-
-// Note that some places use std::bit_ceil to calculate resizes,
-// which won't work for values other than 2. If this is changed, those will need to be updated
-constexpr uint64_t CHUNK_RESIZE_RATIO = 2;
-
-struct InternalKeyword {
-    static constexpr char ANONYMOUS[] = "";
-    static constexpr char ID[] = "_ID";
-    static constexpr char LABEL[] = "_LABEL";
-    static constexpr char SRC[] = "_SRC";
-    static constexpr char DST[] = "_DST";
-    static constexpr char LENGTH[] = "_LENGTH";
-    static constexpr char NODES[] = "_NODES";
-    static constexpr char RELS[] = "_RELS";
-    static constexpr char STAR[] = "*";
-    static constexpr char PLACE_HOLDER[] = "_PLACE_HOLDER";
-    static constexpr char MAP_KEY[] = "KEY";
-    static constexpr char MAP_VALUE[] = "VALUE";
-
-    static constexpr std::string_view ROW_OFFSET = "_row_offset";
-    static constexpr std::string_view SRC_OFFSET = "_src_offset";
-    static constexpr std::string_view DST_OFFSET = "_dst_offset";
-};
-
-enum PageSizeClass : uint8_t {
-    PAGE_4KB = 0,
-    PAGE_256KB = 1,
-};
-
-// Currently the system supports files with 2 different pages size, which we refer to as
-// PAGE_4KB_SIZE and PAGE_256KB_SIZE. PAGE_4KB_SIZE is the default size of the page which is the
-// unit of read/write to the database files, such as to store columns or lists. For now, this value
-// cannot be changed. But technically it can change from 2^12 to 2^16. 2^12 lower bound is assuming
-// the OS page size is 4K. 2^16 is because currently we leave 11 fixed number of bits for
-// relOffInPage and the maximum number of bytes needed for an edge is 20 bytes so 11 + log_2(20)
-// = 15.xxx, so certainly over 2^16-size pages, we cannot utilize the page for storing adjacency
-// lists.
-struct BufferPoolConstants {
-    static constexpr uint64_t PAGE_4KB_SIZE_LOG2 = 12;
-    static constexpr uint64_t PAGE_4KB_SIZE = (std::uint64_t)1 << PAGE_4KB_SIZE_LOG2;
-    // Page size for files with large pages, e.g., temporary files that are used by operators that
-    // may require large amounts of memory.
-    static constexpr uint64_t PAGE_256KB_SIZE_LOG2 = 18;
-    static constexpr uint64_t PAGE_256KB_SIZE = (std::uint64_t)1 << PAGE_256KB_SIZE_LOG2;
-    // If a user does not specify a max size for BM, we by default set the max size of BM to
-    // maxPhyMemSize * DEFAULT_PHY_MEM_SIZE_RATIO_FOR_BM.
-    static constexpr double DEFAULT_PHY_MEM_SIZE_RATIO_FOR_BM = 0.8;
-    // For each PURGE_EVICTION_QUEUE_INTERVAL candidates added to the eviction queue, we will call
-    // `removeNonEvictableCandidates` to remove candidates that are not evictable. See
-    // `EvictionQueue::removeNonEvictableCandidates()` for more details.
-    static constexpr uint64_t EVICTION_QUEUE_PURGING_INTERVAL = 1024;
-// The default max size for a VMRegion.
-#ifdef __32BIT__
-    static constexpr uint64_t DEFAULT_VM_REGION_MAX_SIZE = (uint64_t)1 << 30; // (1GB)
-#else
-    static constexpr uint64_t DEFAULT_VM_REGION_MAX_SIZE = (uint64_t)1 << 43; // (8TB)
-#endif
-
-    static constexpr uint64_t DEFAULT_BUFFER_POOL_SIZE_FOR_TESTING = 1ull << 26; // (64MB)
-};
-
-struct StorageConstants {
-    static constexpr char OVERFLOW_FILE_SUFFIX[] = ".ovf";
-    static constexpr char WAL_FILE_SUFFIX[] = ".wal";
-    static constexpr char INDEX_FILE_SUFFIX[] = ".hindex";
-    static constexpr char NODES_STATISTICS_AND_DELETED_IDS_FILE_NAME[] =
-        "nodes.statistics_and_deleted.ids";
-    static constexpr char NODES_STATISTICS_FILE_NAME_FOR_WAL[] =
-        "nodes.statistics_and_deleted.ids.wal";
-    static constexpr char RELS_METADATA_FILE_NAME[] = "rels.statistics";
-    static constexpr char RELS_METADATA_FILE_NAME_FOR_WAL[] = "rels.statistics.wal";
-    static constexpr char CATALOG_FILE_NAME[] = "catalog.kz";
-    static constexpr char CATALOG_FILE_NAME_FOR_WAL[] = "catalog.kz.wal";
-    static constexpr char DATA_FILE_NAME[] = "data.kz";
-    static constexpr char METADATA_FILE_NAME[] = "metadata.kz";
-    static constexpr char LOCK_FILE_NAME[] = ".lock";
-
-    // The number of pages that we add at one time when we need to grow a file.
-    static constexpr uint64_t PAGE_GROUP_SIZE_LOG2 = 10;
-    static constexpr uint64_t PAGE_GROUP_SIZE = (uint64_t)1 << PAGE_GROUP_SIZE_LOG2;
-    static constexpr uint64_t PAGE_IDX_IN_GROUP_MASK = ((uint64_t)1 << PAGE_GROUP_SIZE_LOG2) - 1;
-
-    static constexpr uint64_t NODE_GROUP_SIZE_LOG2 = 17; // 64 * 2048 nodes per group
-    static constexpr uint64_t NODE_GROUP_SIZE = (uint64_t)1 << NODE_GROUP_SIZE_LOG2;
-
-    static constexpr double PACKED_CSR_DENSITY = 0.8;
-    static constexpr double LEAF_LOW_CSR_DENSITY = 0.1;
-    static constexpr double LEAF_HIGH_CSR_DENSITY = 1.0;
-    // The number of CSR lists in a segment.
-    static constexpr uint64_t CSR_SEGMENT_SIZE_LOG2 = 10;
-    static constexpr uint64_t CSR_SEGMENT_SIZE = (uint64_t)1 << CSR_SEGMENT_SIZE_LOG2;
-
-    static constexpr bool TRUNCATE_OVER_LARGE_STRINGS = true;
-};
-
-// Hash Index Configurations
-struct HashIndexConstants {
-    static constexpr uint16_t SLOT_CAPACITY_BYTES = 256;
-    static constexpr double MAX_LOAD_FACTOR = 0.8;
-};
-
-struct CopyConstants {
-    // Initial size of buffer for CSV Reader.
-    static constexpr uint64_t INITIAL_BUFFER_SIZE = 16384;
-    // This means that we will usually read the entirety of the contents of the file we need for a
-    // block in one read request. It is also very small, which means we can parallelize small files
-    // efficiently.
-    static const uint64_t PARALLEL_BLOCK_SIZE = INITIAL_BUFFER_SIZE / 2;
-
-    static constexpr const char* BOOL_CSV_PARSING_OPTIONS[] = {"HEADER", "PARALLEL"};
-    static constexpr bool DEFAULT_CSV_HAS_HEADER = false;
-    static constexpr bool DEFAULT_CSV_PARALLEL = true;
-
-    // Default configuration for csv file parsing
-    static constexpr const char* STRING_CSV_PARSING_OPTIONS[] = {"ESCAPE", "DELIM", "QUOTE"};
-    static constexpr char DEFAULT_CSV_ESCAPE_CHAR = '\\';
-    static constexpr char DEFAULT_CSV_DELIMITER = ',';
-    static constexpr char DEFAULT_CSV_QUOTE_CHAR = '"';
-    static constexpr char DEFAULT_CSV_LIST_BEGIN_CHAR = '[';
-    static constexpr char DEFAULT_CSV_LIST_END_CHAR = ']';
-    static constexpr char DEFAULT_CSV_LINE_BREAK = '\n';
-    static constexpr const char* ROW_IDX_COLUMN_NAME = "ROW_IDX";
-    static constexpr uint64_t PANDAS_PARTITION_COUNT = 50 * DEFAULT_VECTOR_CAPACITY;
-};
-
-struct RdfConstants {
-    static constexpr const char IN_MEMORY_OPTION[] = "IN_MEMORY";
-    static constexpr const char STRICT_OPTION[] = "STRICT";
-};
-
-struct LoggerConstants {
-    enum class LoggerEnum : uint8_t {
-        DATABASE = 0,
-        CSV_READER = 1,
-        LOADER = 2,
-        PROCESSOR = 3,
-        BUFFER_MANAGER = 4,
-        CATALOG = 5,
-        STORAGE = 6,
-        TRANSACTION_MANAGER = 7,
-        WAL = 8,
-    };
-};
-
-struct PlannerKnobs {
-    static constexpr double NON_EQUALITY_PREDICATE_SELECTIVITY = 0.1;
-    static constexpr double EQUALITY_PREDICATE_SELECTIVITY = 0.01;
-    static constexpr uint64_t BUILD_PENALTY = 2;
-    // Avoid doing probe to build SIP if we have to accumulate a probe side that is much bigger than
-    // build side. Also avoid doing build to probe SIP if probe side is not much bigger than build.
-    static constexpr uint64_t SIP_RATIO = 5;
-};
-
-struct ClientContextConstants {
-    // We disable query timeout by default.
-    static constexpr uint64_t TIMEOUT_IN_MS = 0;
-};
-
-struct OrderByConstants {
-    static constexpr uint64_t NUM_BYTES_FOR_PAYLOAD_IDX = 8;
-    static constexpr uint64_t MIN_SIZE_TO_REDUCE = common::DEFAULT_VECTOR_CAPACITY * 5;
-    static constexpr uint64_t MIN_LIMIT_RATIO_TO_REDUCE = 2;
-};
-
-struct ParquetConstants {
-    static constexpr uint64_t PARQUET_DEFINE_VALID = 65535;
-    static constexpr const char* PARQUET_MAGIC_WORDS = "PAR1";
-    // We limit the uncompressed page size to 100MB.
-    // The max size in Parquet is 2GB, but we choose a more conservative limit.
-    static constexpr uint64_t MAX_UNCOMPRESSED_PAGE_SIZE = 100000000;
-    // Dictionary pages must be below 2GB. Unlike data pages, there's only one dictionary page.
-    // For this reason we go with a much higher, but still a conservative upper bound of 1GB.
-    static constexpr uint64_t MAX_UNCOMPRESSED_DICT_PAGE_SIZE = 1e9;
-    // The maximum size a key entry in an RLE page takes.
-    static constexpr uint64_t MAX_DICTIONARY_KEY_SIZE = sizeof(uint32_t);
-    // The size of encoding the string length.
-    static constexpr uint64_t STRING_LENGTH_SIZE = sizeof(uint32_t);
-    static constexpr uint64_t MAX_STRING_STATISTICS_SIZE = 10000;
-    static constexpr uint64_t PARQUET_INTERVAL_SIZE = 12;
-};
-
-struct CopyToCSVConstants {
-    static constexpr const char* DEFAULT_CSV_NEWLINE = "\n";
-    static constexpr const char* DEFAULT_NULL_STR = "";
-    static constexpr const bool DEFAULT_FORCE_QUOTE = false;
-    static constexpr const uint64_t DEFAULT_CSV_FLUSH_SIZE = 4096 * 8;
-};
-
-} // namespace common
-} // namespace kuzu
-
+#include <map>
+#include <memory>
+#include <unordered_map>
 #include <vector>
 // This file defines many macros for controlling copy constructors and move constructors on classes.
 
@@ -457,7 +64,9 @@ struct CopyToCSVConstants {
     DEFAULT_MOVE_ASSN(Object)
 
 #define EXPLICIT_COPY_METHOD(Object)                                                               \
-    Object copy() const { return *this; }
+    Object copy() const {                                                                          \
+        return *this;                                                                              \
+    }
 
 // EXPLICIT_COPY_DEFAULT_MOVE should be the default choice. It expects a PRIVATE copy constructor to
 // be defined, which will be used by an explicit `copy()` method. For instance:
@@ -502,315 +111,96 @@ static std::vector<T> copyVector(const std::vector<T>& objects) {
     return result;
 }
 
+template<typename T>
+static std::vector<std::shared_ptr<T>> copyVector(const std::vector<std::shared_ptr<T>>& objects) {
+    std::vector<std::shared_ptr<T>> result;
+    result.reserve(objects.size());
+    for (auto& object : objects) {
+        T& ob = *object;
+        result.push_back(ob.copy());
+    }
+    return result;
+}
+
+template<typename T>
+static std::vector<std::unique_ptr<T>> copyVector(const std::vector<std::unique_ptr<T>>& objects) {
+    std::vector<std::unique_ptr<T>> result;
+    result.reserve(objects.size());
+    for (auto& object : objects) {
+        T& ob = *object;
+        result.push_back(ob.copy());
+    }
+    return result;
+}
+
+template<typename K, typename V>
+static std::unordered_map<K, V> copyUnorderedMap(const std::unordered_map<K, V>& objects) {
+    std::unordered_map<K, V> result;
+    for (auto& [k, v] : objects) {
+        result.insert({k, v.copy()});
+    }
+    return result;
+}
+
+template<typename K, typename V>
+static std::map<K, V> copyMap(const std::map<K, V>& objects) {
+    std::map<K, V> result;
+    for (auto& [k, v] : objects) {
+        result.insert({k, v.copy()});
+    }
+    return result;
+}
+#include <string>
+
+namespace kuzu {
+namespace parser {
+
+struct YieldVariable {
+    std::string name;
+    std::string alias;
+
+    YieldVariable(std::string name, std::string alias)
+        : name{std::move(name)}, alias{std::move(alias)} {}
+    bool hasAlias() const { return alias != ""; }
+};
+
+} // namespace parser
+} // namespace kuzu
+
+#include <memory>
+#include <string>
+
+namespace kuzu {
+
+struct OPPrintInfo {
+    OPPrintInfo() {}
+    virtual ~OPPrintInfo() = default;
+
+    virtual std::string toString() const { return std::string(); }
+
+    virtual std::unique_ptr<OPPrintInfo> copy() const { return std::make_unique<OPPrintInfo>(); }
+
+    static std::unique_ptr<OPPrintInfo> EmptyInfo() { return std::make_unique<OPPrintInfo>(); }
+};
+
+} // namespace kuzu
+
 #include <cstdint>
 #include <string>
 
 namespace kuzu {
 namespace common {
 
-/**
- * Function name is a temporary identifier used for binder because grammar does not parse built in
- * functions. After binding, expression type should replace function name and used as identifier.
- */
-// aggregate
-const char* const COUNT_STAR_FUNC_NAME = "COUNT_STAR";
-const char* const COUNT_FUNC_NAME = "COUNT";
-const char* const SUM_FUNC_NAME = "SUM";
-const char* const AVG_FUNC_NAME = "AVG";
-const char* const MIN_FUNC_NAME = "MIN";
-const char* const MAX_FUNC_NAME = "MAX";
-const char* const COLLECT_FUNC_NAME = "COLLECT";
-
-// cast
-const char* const CAST_FUNC_NAME = "CAST";
-const char* const CAST_DATE_FUNC_NAME = "DATE";
-const char* const CAST_TO_DATE_FUNC_NAME = "TO_DATE";
-const char* const CAST_TO_TIMESTAMP_FUNC_NAME = "TIMESTAMP";
-const char* const CAST_INTERVAL_FUNC_NAME = "INTERVAL";
-const char* const CAST_TO_INTERVAL_FUNC_NAME = "TO_INTERVAL";
-const char* const CAST_STRING_FUNC_NAME = "STRING";
-const char* const CAST_TO_STRING_FUNC_NAME = "TO_STRING";
-const char* const CAST_TO_DOUBLE_FUNC_NAME = "TO_DOUBLE";
-const char* const CAST_TO_FLOAT_FUNC_NAME = "TO_FLOAT";
-const char* const CAST_TO_SERIAL_FUNC_NAME = "TO_SERIAL";
-const char* const CAST_TO_INT64_FUNC_NAME = "TO_INT64";
-const char* const CAST_TO_INT32_FUNC_NAME = "TO_INT32";
-const char* const CAST_TO_INT16_FUNC_NAME = "TO_INT16";
-const char* const CAST_TO_INT8_FUNC_NAME = "TO_INT8";
-const char* const CAST_TO_UINT64_FUNC_NAME = "TO_UINT64";
-const char* const CAST_TO_UINT32_FUNC_NAME = "TO_UINT32";
-const char* const CAST_TO_UINT16_FUNC_NAME = "TO_UINT16";
-const char* const CAST_TO_UINT8_FUNC_NAME = "TO_UINT8";
-const char* const CAST_BLOB_FUNC_NAME = "BLOB";
-const char* const CAST_TO_BLOB_FUNC_NAME = "TO_BLOB";
-const char* const CAST_UUID_FUNC_NAME = "UUID";
-const char* const CAST_TO_UUID_FUNC_NAME = "TO_UUID";
-const char* const CAST_TO_BOOL_FUNC_NAME = "TO_BOOL";
-const char* const CAST_TO_INT128_FUNC_NAME = "TO_INT128";
-
-// list
-const char* const LIST_CREATION_FUNC_NAME = "LIST_CREATION";
-const char* const LIST_RANGE_FUNC_NAME = "RANGE";
-const char* const LIST_EXTRACT_FUNC_NAME = "LIST_EXTRACT";
-const char* const LIST_ELEMENT_FUNC_NAME = "LIST_ELEMENT";
-const char* const LIST_CONCAT_FUNC_NAME = "LIST_CONCAT";
-const char* const LIST_CAT_FUNC_NAME = "LIST_CAT";
-const char* const ARRAY_CONCAT_FUNC_NAME = "ARRAY_CONCAT";
-const char* const ARRAY_CAT_FUNC_NAME = "ARRAY_CAT";
-const char* const LIST_APPEND_FUNC_NAME = "LIST_APPEND";
-const char* const ARRAY_APPEND_FUNC_NAME = "ARRAY_APPEND";
-const char* const ARRAY_PUSH_BACK_FUNC_NAME = "ARRAY_PUSH_BACK";
-const char* const LIST_PREPEND_FUNC_NAME = "LIST_PREPEND";
-const char* const ARRAY_PREPEND_FUNC_NAME = "ARRAY_PREPEND";
-const char* const ARRAY_PUSH_FRONT_FUNC_NAME = "ARRAY_PUSH_FRONT";
-const char* const LIST_POSITION_FUNC_NAME = "LIST_POSITION";
-const char* const LIST_INDEXOF_FUNC_NAME = "LIST_INDEXOF";
-const char* const ARRAY_POSITION_FUNC_NAME = "ARRAY_POSITION";
-const char* const ARRAY_INDEXOF_FUNC_NAME = "ARRAY_INDEXOF";
-const char* const LIST_CONTAINS_FUNC_NAME = "LIST_CONTAINS";
-const char* const LIST_HAS_FUNC_NAME = "LIST_HAS";
-const char* const ARRAY_CONTAINS_FUNC_NAME = "ARRAY_CONTAINS";
-const char* const ARRAY_HAS_FUNC_NAME = "ARRAY_HAS";
-const char* const LIST_SLICE_FUNC_NAME = "LIST_SLICE";
-const char* const ARRAY_SLICE_FUNC_NAME = "ARRAY_SLICE";
-const char* const LIST_SUM_FUNC_NAME = "LIST_SUM";
-const char* const LIST_PRODUCT_FUNC_NAME = "LIST_PRODUCT";
-const char* const LIST_SORT_FUNC_NAME = "LIST_SORT";
-const char* const LIST_REVERSE_SORT_FUNC_NAME = "LIST_REVERSE_SORT";
-const char* const LIST_DISTINCT_FUNC_NAME = "LIST_DISTINCT";
-const char* const LIST_UNIQUE_FUNC_NAME = "LIST_UNIQUE";
-const char* const LIST_ANY_VALUE_FUNC_NAME = "LIST_ANY_VALUE";
-const char* const LIST_REVERSE_FUNC_NAME = "LIST_REVERSE";
-
-// struct
-const char* const STRUCT_PACK_FUNC_NAME = "STRUCT_PACK";
-const char* const STRUCT_EXTRACT_FUNC_NAME = "STRUCT_EXTRACT";
-
-// map
-const char* const MAP_CREATION_FUNC_NAME = "MAP";
-const char* const MAP_EXTRACT_FUNC_NAME = "MAP_EXTRACT";
-const char* const ELEMENT_AT_FUNC_NAME = "ELEMENT_AT"; // alias of MAP_EXTRACT
-const char* const CARDINALITY_FUNC_NAME = "CARDINALITY";
-const char* const MAP_KEYS_FUNC_NAME = "MAP_KEYS";
-const char* const MAP_VALUES_FUNC_NAME = "MAP_VALUES";
-
-// union
-const char* const UNION_VALUE_FUNC_NAME = "UNION_VALUE";
-const char* const UNION_TAG_FUNC_NAME = "UNION_TAG";
-const char* const UNION_EXTRACT_FUNC_NAME = "UNION_EXTRACT";
-
-// comparison
-const char* const EQUALS_FUNC_NAME = "EQUALS";
-const char* const NOT_EQUALS_FUNC_NAME = "NOT_EQUALS";
-const char* const GREATER_THAN_FUNC_NAME = "GREATER_THAN";
-const char* const GREATER_THAN_EQUALS_FUNC_NAME = "GREATER_THAN_EQUALS";
-const char* const LESS_THAN_FUNC_NAME = "LESS_THAN";
-const char* const LESS_THAN_EQUALS_FUNC_NAME = "LESS_THAN_EQUALS";
-
-// arithmetics operators
-const char* const ADD_FUNC_NAME = "+";
-const char* const SUBTRACT_FUNC_NAME = "-";
-const char* const MULTIPLY_FUNC_NAME = "*";
-const char* const DIVIDE_FUNC_NAME = "/";
-const char* const MODULO_FUNC_NAME = "%";
-const char* const POWER_FUNC_NAME = "^";
-
-// arithmetics functions
-const char* const ABS_FUNC_NAME = "ABS";
-const char* const ACOS_FUNC_NAME = "ACOS";
-const char* const ASIN_FUNC_NAME = "ASIN";
-const char* const ATAN_FUNC_NAME = "ATAN";
-const char* const ATAN2_FUNC_NAME = "ATAN2";
-const char* const BITWISE_XOR_FUNC_NAME = "BITWISE_XOR";
-const char* const BITWISE_AND_FUNC_NAME = "BITWISE_AND";
-const char* const BITWISE_OR_FUNC_NAME = "BITWISE_OR";
-const char* const BITSHIFT_LEFT_FUNC_NAME = "BITSHIFT_LEFT";
-const char* const BITSHIFT_RIGHT_FUNC_NAME = "BITSHIFT_RIGHT";
-const char* const CBRT_FUNC_NAME = "CBRT";
-const char* const CEIL_FUNC_NAME = "CEIL";
-const char* const CEILING_FUNC_NAME = "CEILING";
-const char* const COS_FUNC_NAME = "COS";
-const char* const COT_FUNC_NAME = "COT";
-const char* const DEGREES_FUNC_NAME = "DEGREES";
-const char* const EVEN_FUNC_NAME = "EVEN";
-const char* const FACTORIAL_FUNC_NAME = "FACTORIAL";
-const char* const FLOOR_FUNC_NAME = "FLOOR";
-const char* const GAMMA_FUNC_NAME = "GAMMA";
-const char* const LGAMMA_FUNC_NAME = "LGAMMA";
-const char* const LN_FUNC_NAME = "LN";
-const char* const LOG_FUNC_NAME = "LOG";
-const char* const LOG2_FUNC_NAME = "LOG2";
-const char* const LOG10_FUNC_NAME = "LOG10";
-const char* const NEGATE_FUNC_NAME = "NEGATE";
-const char* const PI_FUNC_NAME = "PI";
-const char* const POW_FUNC_NAME = "POW";
-const char* const RADIANS_FUNC_NAME = "RADIANS";
-const char* const ROUND_FUNC_NAME = "ROUND";
-const char* const SIN_FUNC_NAME = "SIN";
-const char* const SIGN_FUNC_NAME = "SIGN";
-const char* const SQRT_FUNC_NAME = "SQRT";
-const char* const TAN_FUNC_NAME = "TAN";
-
-// string
-const char* const ARRAY_EXTRACT_FUNC_NAME = "ARRAY_EXTRACT";
-const char* const CONCAT_FUNC_NAME = "CONCAT";
-const char* const CONTAINS_FUNC_NAME = "CONTAINS";
-const char* const ENDS_WITH_FUNC_NAME = "ENDS_WITH";
-const char* const LCASE_FUNC_NAME = "LCASE";
-const char* const LEFT_FUNC_NAME = "LEFT";
-const char* const LENGTH_FUNC_NAME = "LENGTH";
-const char* const LOWER_FUNC_NAME = "LOWER";
-const char* const LPAD_FUNC_NAME = "LPAD";
-const char* const LTRIM_FUNC_NAME = "LTRIM";
-const char* const PREFIX_FUNC_NAME = "PREFIX";
-const char* const REPEAT_FUNC_NAME = "REPEAT";
-const char* const REVERSE_FUNC_NAME = "REVERSE";
-const char* const RIGHT_FUNC_NAME = "RIGHT";
-const char* const RPAD_FUNC_NAME = "RPAD";
-const char* const RTRIM_FUNC_NAME = "RTRIM";
-const char* const STARTS_WITH_FUNC_NAME = "STARTS_WITH";
-const char* const SUBSTR_FUNC_NAME = "SUBSTR";
-const char* const SUBSTRING_FUNC_NAME = "SUBSTRING";
-const char* const SUFFIX_FUNC_NAME = "SUFFIX";
-const char* const TRIM_FUNC_NAME = "TRIM";
-const char* const UCASE_FUNC_NAME = "UCASE";
-const char* const UPPER_FUNC_NAME = "UPPER";
-const char* const REGEXP_FULL_MATCH_FUNC_NAME = "REGEXP_FULL_MATCH";
-const char* const REGEXP_MATCHES_FUNC_NAME = "REGEXP_MATCHES";
-const char* const REGEXP_REPLACE_FUNC_NAME = "REGEXP_REPLACE";
-const char* const REGEXP_EXTRACT_FUNC_NAME = "REGEXP_EXTRACT";
-const char* const REGEXP_EXTRACT_ALL_FUNC_NAME = "REGEXP_EXTRACT_ALL";
-const char* const SIZE_FUNC_NAME = "SIZE";
-const char* const LEVENSHTEIN_FUNC_NAME = "LEVENSHTEIN";
-
-// Date functions.
-const char* const DATE_PART_FUNC_NAME = "DATE_PART";
-const char* const DATEPART_FUNC_NAME = "DATEPART";
-const char* const DATE_TRUNC_FUNC_NAME = "DATE_TRUNC";
-const char* const DATETRUNC_FUNC_NAME = "DATETRUNC";
-const char* const DAYNAME_FUNC_NAME = "DAYNAME";
-const char* const GREATEST_FUNC_NAME = "GREATEST";
-const char* const LAST_DAY_FUNC_NAME = "LAST_DAY";
-const char* const LEAST_FUNC_NAME = "LEAST";
-const char* const MAKE_DATE_FUNC_NAME = "MAKE_DATE";
-const char* const MONTHNAME_FUNC_NAME = "MONTHNAME";
-
-// Timestamp functions.
-const char* const CENTURY_FUNC_NAME = "CENTURY";
-const char* const EPOCH_MS_FUNC_NAME = "EPOCH_MS";
-const char* const TO_TIMESTAMP_FUNC_NAME = "TO_TIMESTAMP";
-
-// Interval functions.
-const char* const TO_YEARS_FUNC_NAME = "TO_YEARS";
-const char* const TO_MONTHS_FUNC_NAME = "TO_MONTHS";
-const char* const TO_DAYS_FUNC_NAME = "TO_DAYS";
-const char* const TO_HOURS_FUNC_NAME = "TO_HOURS";
-const char* const TO_MINUTES_FUNC_NAME = "TO_MINUTES";
-const char* const TO_SECONDS_FUNC_NAME = "TO_SECONDS";
-const char* const TO_MILLISECONDS_FUNC_NAME = "TO_MILLISECONDS";
-const char* const TO_MICROSECONDS_FUNC_NAME = "TO_MICROSECONDS";
-
-// Node/Rel functions.
-const char* const ID_FUNC_NAME = "ID";
-const char* const LABEL_FUNC_NAME = "LABEL";
-const char* const OFFSET_FUNC_NAME = "OFFSET";
-
-// Path functions
-const char* const NODES_FUNC_NAME = "NODES";
-const char* const RELS_FUNC_NAME = "RELS";
-const char* const PROPERTIES_FUNC_NAME = "PROPERTIES";
-const char* const IS_TRAIL_FUNC_NAME = "IS_TRAIL";
-const char* const IS_ACYCLIC_FUNC_NAME = "IS_ACYCLIC";
-
-// Blob functions
-const char* const OCTET_LENGTH_FUNC_NAME = "OCTET_LENGTH";
-const char* const ENCODE_FUNC_NAME = "ENCODE";
-const char* const DECODE_FUNC_NAME = "DECODE";
-
-// UUID functions
-const char* const GEN_RANDOM_UUID_FUNC_NAME = "GEN_RANDOM_UUID";
-
-// RDF functions
-const char* const TYPE_FUNC_NAME = "TYPE";
-const char* const VALIDATE_PREDICATE_FUNC_NAME = "VALIDATE_PREDICATE";
-
-// Table functions
-const char* const TABLE_INFO_FUNC_NAME = "TABLE_INFO";
-const char* const DB_VERSION_FUNC_NAME = "DB_VERSION";
-const char* const CURRENT_SETTING_FUNC_NAME = "CURRENT_SETTING";
-const char* const SHOW_TABLES_FUNC_NAME = "SHOW_TABLES";
-const char* const SHOW_CONNECTION_FUNC_NAME = "SHOW_CONNECTION";
-const char* const STORAGE_INFO_FUNC_NAME = "STORAGE_INFO";
-// Table functions - read functions
-const char* const READ_PARQUET_FUNC_NAME = "READ_PARQUET";
-const char* const READ_NPY_FUNC_NAME = "READ_NPY";
-const char* const READ_CSV_SERIAL_FUNC_NAME = "READ_CSV_SERIAL";
-const char* const READ_CSV_PARALLEL_FUNC_NAME = "READ_CSV_PARALLEL";
-const char* const READ_RDF_RESOURCE_FUNC_NAME = "READ_RDF_RESOURCE";
-const char* const READ_RDF_LITERAL_FUNC_NAME = "READ_RDF_LITERAL";
-const char* const READ_RDF_RESOURCE_TRIPLE_FUNC_NAME = "READ_RDF_RESOURCE_TRIPLE";
-const char* const READ_RDF_LITERAL_TRIPLE_FUNC_NAME = "READ_RDF_LITERAL_TRIPLE";
-const char* const READ_RDF_ALL_TRIPLE_FUNC_NAME = "READ_RDF_ALL_TRIPLE";
-const char* const IN_MEM_READ_RDF_RESOURCE_FUNC_NAME = "IN_MEM_READ_RDF_RESOURCE";
-const char* const IN_MEM_READ_RDF_LITERAL_FUNC_NAME = "IN_MEM_READ_RDF_LITERAL";
-const char* const IN_MEM_READ_RDF_RESOURCE_TRIPLE_FUNC_NAME = "IN_MEM_READ_RDF_RESOURCE_TRIPLE";
-const char* const IN_MEM_READ_RDF_LITERAL_TRIPLE_FUNC_NAME = "IN_MEM_READ_RDF_LITERAL_TRIPLE";
-const char* const READ_PANDAS_FUNC_NAME = "READ_PANDAS";
-const char* const READ_FTABLE_FUNC_NAME = "READ_FTABLE";
-
-enum class ExpressionType : uint8_t {
-
-    // Boolean Connection Expressions
-    OR = 0,
-    XOR = 1,
-    AND = 2,
-    NOT = 3,
-
-    // Comparison Expressions
-    EQUALS = 10,
-    NOT_EQUALS = 11,
-    GREATER_THAN = 12,
-    GREATER_THAN_EQUALS = 13,
-    LESS_THAN = 14,
-    LESS_THAN_EQUALS = 15,
-
-    // Null Operator Expressions
-    IS_NULL = 50,
-    IS_NOT_NULL = 51,
-
-    PROPERTY = 60,
-
-    LITERAL = 70,
-
-    STAR = 80,
-
-    VARIABLE = 90,
-    PATH = 91,
-    PATTERN = 92, // Node & Rel pattern
-
-    PARAMETER = 100,
-
-    FUNCTION = 110,
-
-    AGGREGATE_FUNCTION = 130,
-
-    SUBQUERY = 190,
-
-    CASE_ELSE = 200,
-
-    MACRO = 210,
+enum class PathSemantic : uint8_t {
+    WALK = 0,
+    TRAIL = 1,
+    ACYCLIC = 2,
 };
 
-bool isExpressionUnary(ExpressionType type);
-bool isExpressionBinary(ExpressionType type);
-bool isExpressionBoolConnection(ExpressionType type);
-bool isExpressionComparison(ExpressionType type);
-bool isExpressionNullOperator(ExpressionType type);
-bool isExpressionLiteral(ExpressionType type);
-bool isExpressionAggregate(ExpressionType type);
-bool isExpressionSubquery(ExpressionType type);
-
-std::string expressionTypeToString(ExpressionType type);
+struct PathSemanticUtils {
+    static PathSemantic fromString(const std::string& str);
+    static std::string toString(PathSemantic semantic);
+};
 
 } // namespace common
 } // namespace kuzu
@@ -823,36 +213,103 @@ namespace common {
 enum class StatementType : uint8_t {
     QUERY = 0,
     CREATE_TABLE = 1,
-    DROP_TABLE = 2,
+    DROP = 2,
     ALTER = 3,
     COPY_TO = 19,
     COPY_FROM = 20,
     STANDALONE_CALL = 21,
-    EXPLAIN = 22,
-    CREATE_MACRO = 23,
-    COMMENT_ON = 24,
+    STANDALONE_CALL_FUNCTION = 22,
+    EXPLAIN = 23,
+    CREATE_MACRO = 24,
     TRANSACTION = 30,
     EXTENSION = 31,
     EXPORT_DATABASE = 32,
-};
-
-struct StatementTypeUtils {
-    static bool allowActiveTransaction(StatementType statementType) {
-        switch (statementType) {
-        case StatementType::CREATE_TABLE:
-        case StatementType::DROP_TABLE:
-        case StatementType::ALTER:
-        case StatementType::CREATE_MACRO:
-        case StatementType::COPY_FROM:
-            return false;
-        default:
-            return true;
-        }
-    }
+    IMPORT_DATABASE = 33,
+    ATTACH_DATABASE = 34,
+    DETACH_DATABASE = 35,
+    USE_DATABASE = 36,
+    CREATE_SEQUENCE = 37,
+    CREATE_TYPE = 39,
 };
 
 } // namespace common
 } // namespace kuzu
+
+#include <cstdint>
+
+namespace kuzu {
+
+namespace testing {
+class BaseGraphTest;
+class PrivateGraphTest;
+class TestHelper;
+class TestRunner;
+} // namespace testing
+
+namespace benchmark {
+class Benchmark;
+} // namespace benchmark
+
+namespace binder {
+class Expression;
+class BoundStatementResult;
+class PropertyExpression;
+} // namespace binder
+
+namespace catalog {
+class Catalog;
+} // namespace catalog
+
+namespace common {
+enum class StatementType : uint8_t;
+class Value;
+struct FileInfo;
+class VirtualFileSystem;
+} // namespace common
+
+namespace storage {
+class MemoryManager;
+class BufferManager;
+class StorageManager;
+class WAL;
+enum class WALReplayMode : uint8_t;
+} // namespace storage
+
+namespace planner {
+class LogicalOperator;
+class LogicalPlan;
+} // namespace planner
+
+namespace processor {
+class QueryProcessor;
+class FactorizedTable;
+class FlatTupleIterator;
+class PhysicalOperator;
+class PhysicalPlan;
+} // namespace processor
+
+namespace transaction {
+class Transaction;
+class TransactionManager;
+class TransactionContext;
+} // namespace transaction
+
+} // namespace kuzu
+
+#include <algorithm>
+#include <array>
+#include <cstddef>
+
+namespace kuzu::common {
+template<typename T, size_t N1, size_t N2>
+constexpr std::array<T, N1 + N2> arrayConcat(const std::array<T, N1>& arr1,
+    const std::array<T, N2>& arr2) {
+    std::array<T, N1 + N2> ret{};
+    std::copy_n(arr1.cbegin(), arr1.size(), ret.begin());
+    std::copy_n(arr2.cbegin(), arr2.size(), ret.begin() + arr1.size());
+    return ret;
+}
+} // namespace kuzu::common
 
 // The Arrow C data interface.
 // https://arrow.apache.org/docs/format/CDataInterface.html
@@ -909,11 +366,43 @@ struct ArrowArray {
 }
 #endif
 
+struct ArrowSchemaWrapper : public ArrowSchema {
+    ArrowSchemaWrapper() : ArrowSchema{} { release = nullptr; }
+    ~ArrowSchemaWrapper() {
+        if (release) {
+            release(this);
+        }
+    }
+};
+
+struct ArrowArrayWrapper : public ArrowArray {
+    ArrowArrayWrapper() : ArrowArray{} { release = nullptr; }
+    ~ArrowArrayWrapper() {
+        if (release) {
+            release(this);
+        }
+    }
+};
+
+namespace kuzu {
+namespace common {
+struct DatabaseLifeCycleManager {
+    bool isDatabaseClosed = false;
+    void checkDatabaseClosedOrThrow() const;
+};
+} // namespace common
+} // namespace kuzu
+
 #include <cstdint>
 #include <string>
 
 
 namespace kuzu {
+
+namespace regex {
+class RE2;
+}
+
 namespace common {
 
 struct timestamp_t;
@@ -1005,12 +494,14 @@ public:
     KUZU_API static interval_t fromCString(const char* str, uint64_t len);
     KUZU_API static std::string toString(interval_t interval);
     KUZU_API static bool greaterThan(const interval_t& left, const interval_t& right);
-    KUZU_API static void normalizeIntervalEntries(
-        interval_t input, int64_t& months, int64_t& days, int64_t& micros);
+    KUZU_API static void normalizeIntervalEntries(interval_t input, int64_t& months, int64_t& days,
+        int64_t& micros);
     KUZU_API static void tryGetDatePartSpecifier(std::string specifier, DatePartSpecifier& result);
-    KUZU_API static int32_t getIntervalPart(DatePartSpecifier specifier, interval_t& timestamp);
+    KUZU_API static int32_t getIntervalPart(DatePartSpecifier specifier, interval_t timestamp);
     KUZU_API static int64_t getMicro(const interval_t& val);
     KUZU_API static int64_t getNanoseconds(const interval_t& val);
+    KUZU_API static const regex::RE2& regexPattern1();
+    KUZU_API static const regex::RE2& regexPattern2();
 };
 
 } // namespace common
@@ -1054,28 +545,28 @@ class Time {
 public:
     // Convert a string in the format "hh:mm:ss" to a time object
     KUZU_API static dtime_t fromCString(const char* buf, uint64_t len);
-    KUZU_API static bool tryConvertInterval(
-        const char* buf, uint64_t len, uint64_t& pos, dtime_t& result);
-    KUZU_API static bool tryConvertTime(
-        const char* buf, uint64_t len, uint64_t& pos, dtime_t& result);
+    KUZU_API static bool tryConvertInterval(const char* buf, uint64_t len, uint64_t& pos,
+        dtime_t& result);
+    KUZU_API static bool tryConvertTime(const char* buf, uint64_t len, uint64_t& pos,
+        dtime_t& result);
 
     // Convert a time object to a string in the format "hh:mm:ss"
     KUZU_API static std::string toString(dtime_t time);
 
-    KUZU_API static dtime_t fromTime(
-        int32_t hour, int32_t minute, int32_t second, int32_t microseconds = 0);
+    KUZU_API static dtime_t fromTime(int32_t hour, int32_t minute, int32_t second,
+        int32_t microseconds = 0);
 
     // Extract the time from a given timestamp object
-    KUZU_API static void convert(
-        dtime_t time, int32_t& out_hour, int32_t& out_min, int32_t& out_sec, int32_t& out_micros);
+    KUZU_API static void convert(dtime_t time, int32_t& out_hour, int32_t& out_min,
+        int32_t& out_sec, int32_t& out_micros);
 
-    KUZU_API static bool isValid(
-        int32_t hour, int32_t minute, int32_t second, int32_t milliseconds);
+    KUZU_API static bool isValid(int32_t hour, int32_t minute, int32_t second,
+        int32_t milliseconds);
 
 private:
     static bool tryConvertInternal(const char* buf, uint64_t len, uint64_t& pos, dtime_t& result);
-    static dtime_t fromTimeInternal(
-        int32_t hour, int32_t minute, int32_t second, int32_t microseconds = 0);
+    static dtime_t fromTimeInternal(int32_t hour, int32_t minute, int32_t second,
+        int32_t microseconds = 0);
 };
 
 } // namespace common
@@ -1102,7 +593,17 @@ struct int128_t {
     int64_t high;
 
     int128_t() = default;
-    int128_t(int64_t value); // NOLINT: Allow implicit conversion from `int64_t`
+    int128_t(int64_t value);  // NOLINT: Allow implicit conversion from numeric values
+    int128_t(int32_t value);  // NOLINT: Allow implicit conversion from numeric values
+    int128_t(int16_t value);  // NOLINT: Allow implicit conversion from numeric values
+    int128_t(int8_t value);   // NOLINT: Allow implicit conversion from numeric values
+    int128_t(uint64_t value); // NOLINT: Allow implicit conversion from numeric values
+    int128_t(uint32_t value); // NOLINT: Allow implicit conversion from numeric values
+    int128_t(uint16_t value); // NOLINT: Allow implicit conversion from numeric values
+    int128_t(uint8_t value);  // NOLINT: Allow implicit conversion from numeric values
+    int128_t(double value);   // NOLINT: Allow implicit conversion from numeric values
+    int128_t(float value);    // NOLINT: Allow implicit conversion from numeric values
+
     constexpr int128_t(uint64_t low, int64_t high) : low(low), high(high) {}
 
     constexpr int128_t(const int128_t&) = default;
@@ -1110,29 +611,47 @@ struct int128_t {
     int128_t& operator=(const int128_t&) = default;
     int128_t& operator=(int128_t&&) = default;
 
-    // comparison operators
-    bool operator==(const int128_t& rhs) const;
-    bool operator!=(const int128_t& rhs) const;
-    bool operator>(const int128_t& rhs) const;
-    bool operator>=(const int128_t& rhs) const;
-    bool operator<(const int128_t& rhs) const;
-    bool operator<=(const int128_t& rhs) const;
-
-    // arithmetic operators
-    int128_t operator+(const int128_t& rhs) const;
-    int128_t operator-(const int128_t& rhs) const;
-    int128_t operator*(const int128_t& rhs) const;
-    int128_t operator/(const int128_t& rhs) const;
-    int128_t operator%(const int128_t& rhs) const;
     int128_t operator-() const;
 
     // inplace arithmetic operators
     int128_t& operator+=(const int128_t& rhs);
     int128_t& operator*=(const int128_t& rhs);
+    int128_t& operator|=(const int128_t& rhs);
+    int128_t& operator&=(const int128_t& rhs);
 
     // cast operators
     explicit operator int64_t() const;
+    explicit operator int32_t() const;
+    explicit operator int16_t() const;
+    explicit operator int8_t() const;
+    explicit operator uint64_t() const;
+    explicit operator uint32_t() const;
+    explicit operator uint16_t() const;
+    explicit operator uint8_t() const;
+    explicit operator double() const;
+    explicit operator float() const;
 };
+
+// arithmetic operators
+KUZU_API int128_t operator+(const int128_t& lhs, const int128_t& rhs);
+KUZU_API int128_t operator-(const int128_t& lhs, const int128_t& rhs);
+KUZU_API int128_t operator*(const int128_t& lhs, const int128_t& rhs);
+KUZU_API int128_t operator/(const int128_t& lhs, const int128_t& rhs);
+KUZU_API int128_t operator%(const int128_t& lhs, const int128_t& rhs);
+KUZU_API int128_t operator^(const int128_t& lhs, const int128_t& rhs);
+KUZU_API int128_t operator&(const int128_t& lhs, const int128_t& rhs);
+KUZU_API int128_t operator~(const int128_t& val);
+KUZU_API int128_t operator|(const int128_t& lhs, const int128_t& rhs);
+KUZU_API int128_t operator<<(const int128_t& lhs, int amount);
+KUZU_API int128_t operator>>(const int128_t& lhs, int amount);
+
+// comparison operators
+KUZU_API bool operator==(const int128_t& lhs, const int128_t& rhs);
+KUZU_API bool operator!=(const int128_t& lhs, const int128_t& rhs);
+KUZU_API bool operator>(const int128_t& lhs, const int128_t& rhs);
+KUZU_API bool operator>=(const int128_t& lhs, const int128_t& rhs);
+KUZU_API bool operator<(const int128_t& lhs, const int128_t& rhs);
+KUZU_API bool operator<=(const int128_t& lhs, const int128_t& rhs);
 
 class Int128_t {
 public:
@@ -1153,7 +672,7 @@ public:
 
     template<class T>
     static int128_t castTo(T value) {
-        int128_t result;
+        int128_t result{};
         if (!tryCastTo(value, result)) {
             throw std::overflow_error("INT128 is out of range");
         }
@@ -1181,6 +700,12 @@ public:
     static int128_t Mul(int128_t lhs, int128_t rhs);
     static int128_t Div(int128_t lhs, int128_t rhs);
     static int128_t Mod(int128_t lhs, int128_t rhs);
+    static int128_t Xor(int128_t lhs, int128_t rhs);
+    static int128_t LeftShift(int128_t lhs, int amount);
+    static int128_t RightShift(int128_t lhs, int amount);
+    static int128_t BinaryAnd(int128_t lhs, int128_t rhs);
+    static int128_t BinaryOr(int128_t lhs, int128_t rhs);
+    static int128_t BinaryNot(int128_t val);
 
     static int128_t divMod(int128_t lhs, int128_t rhs, int128_t& remainder);
     static int128_t divModPositive(int128_t lhs, uint64_t rhs, uint64_t& remainder);
@@ -1273,45 +798,6 @@ struct std::hash<kuzu::common::int128_t> {
     std::size_t operator()(const kuzu::common::int128_t& v) const noexcept;
 };
 
-#include <cstdint>
-#include <unordered_set>
-#include <vector>
-
-
-namespace kuzu {
-namespace common {
-
-struct internalID_t;
-using nodeID_t = internalID_t;
-using relID_t = internalID_t;
-
-using table_id_t = uint64_t;
-using table_id_vector_t = std::vector<table_id_t>;
-using table_id_set_t = std::unordered_set<table_id_t>;
-using offset_t = uint64_t;
-constexpr table_id_t INVALID_TABLE_ID = UINT64_MAX;
-constexpr offset_t INVALID_OFFSET = UINT64_MAX;
-
-// System representation for internalID.
-struct KUZU_API internalID_t {
-    offset_t offset;
-    table_id_t tableID;
-
-    internalID_t();
-    internalID_t(offset_t offset, table_id_t tableID);
-
-    // comparison operators
-    bool operator==(const internalID_t& rhs) const;
-    bool operator!=(const internalID_t& rhs) const;
-    bool operator>(const internalID_t& rhs) const;
-    bool operator>=(const internalID_t& rhs) const;
-    bool operator<(const internalID_t& rhs) const;
-    bool operator<=(const internalID_t& rhs) const;
-};
-
-} // namespace common
-} // namespace kuzu
-
 #include <exception>
 #include <string>
 
@@ -1321,13 +807,31 @@ namespace common {
 
 class KUZU_API Exception : public std::exception {
 public:
-    explicit Exception(std::string msg) : exception(), exception_message_(std::move(msg)){};
+    explicit Exception(std::string msg);
 
 public:
     const char* what() const noexcept override { return exception_message_.c_str(); }
 
 private:
     std::string exception_message_;
+};
+
+} // namespace common
+} // namespace kuzu
+
+#include <cstdint>
+
+
+namespace kuzu {
+namespace common {
+
+class Value;
+
+class NestedVal {
+public:
+    KUZU_API static uint32_t getChildrenSize(const Value* val);
+
+    KUZU_API static Value* getChildVal(const Value* val, uint32_t idx);
 };
 
 } // namespace common
@@ -1389,24 +893,6 @@ private:
     static void throwIfNotNode(const Value* val);
     // 2 offsets for id and label.
     static constexpr uint64_t OFFSET = 2;
-};
-
-} // namespace common
-} // namespace kuzu
-
-#include <cstdint>
-
-
-namespace kuzu {
-namespace common {
-
-class Value;
-
-class NestedVal {
-public:
-    KUZU_API static uint32_t getChildrenSize(const Value* val);
-
-    KUZU_API static Value* getChildVal(const Value* val, uint32_t idx);
 };
 
 } // namespace common
@@ -1487,6 +973,10 @@ public:
      */
     KUZU_API static Value* getDstNodeIDVal(const Value* val);
     /**
+     * @return the internal ID value of the RelVal in Value.
+     */
+    KUZU_API static Value* getIDVal(const Value* val);
+    /**
      * @return the label value of the RelVal.
      */
     KUZU_API static Value* getLabelVal(const Value* val);
@@ -1503,6 +993,194 @@ private:
 
 } // namespace common
 } // namespace kuzu
+
+#include <cstdint>
+#include <string>
+
+
+namespace kuzu {
+namespace common {
+
+enum class ExpressionType : uint8_t {
+    // Boolean Connection Expressions
+    OR = 0,
+    XOR = 1,
+    AND = 2,
+    NOT = 3,
+
+    // Comparison Expressions
+    EQUALS = 10,
+    NOT_EQUALS = 11,
+    GREATER_THAN = 12,
+    GREATER_THAN_EQUALS = 13,
+    LESS_THAN = 14,
+    LESS_THAN_EQUALS = 15,
+
+    // Null Operator Expressions
+    IS_NULL = 50,
+    IS_NOT_NULL = 51,
+
+    PROPERTY = 60,
+
+    LITERAL = 70,
+
+    STAR = 80,
+
+    VARIABLE = 90,
+    PATH = 91,
+    PATTERN = 92, // Node & Rel pattern
+
+    PARAMETER = 100,
+
+    // At parsing stage, both aggregate and scalar functions have type FUNCTION.
+    // After binding, only scalar function have type FUNCTION.
+    FUNCTION = 110,
+
+    AGGREGATE_FUNCTION = 130,
+
+    SUBQUERY = 190,
+
+    CASE_ELSE = 200,
+
+    GRAPH = 210,
+
+    LAMBDA = 220,
+
+    // NOTE: this enum has type uint8_t so don't assign over 255.
+    INVALID = 255,
+};
+
+struct ExpressionTypeUtil {
+    static bool isUnary(ExpressionType type);
+    static bool isBinary(ExpressionType type);
+    static bool isBoolean(ExpressionType type);
+    static bool isComparison(ExpressionType type);
+    static bool isNullOperator(ExpressionType type);
+
+    static ExpressionType reverseComparisonDirection(ExpressionType type);
+
+    static KUZU_API std::string toString(ExpressionType type);
+    static std::string toParsableString(ExpressionType type);
+};
+
+} // namespace common
+} // namespace kuzu
+
+#include <cstdint>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+
+
+namespace kuzu {
+namespace common {
+
+struct CaseInsensitiveStringHashFunction {
+    KUZU_API uint64_t operator()(const std::string& str) const;
+};
+
+struct CaseInsensitiveStringEquality {
+    KUZU_API bool operator()(const std::string& lhs, const std::string& rhs) const;
+};
+
+template<typename T>
+using case_insensitive_map_t = std::unordered_map<std::string, T, CaseInsensitiveStringHashFunction,
+    CaseInsensitiveStringEquality>;
+
+using case_insensitve_set_t = std::unordered_set<std::string, CaseInsensitiveStringHashFunction,
+    CaseInsensitiveStringEquality>;
+
+} // namespace common
+} // namespace kuzu
+
+#include <cstdint>
+#include <cstring>
+#include <string>
+
+
+namespace kuzu {
+namespace common {
+
+struct KUZU_API ku_string_t {
+
+    static constexpr uint64_t PREFIX_LENGTH = 4;
+    static constexpr uint64_t INLINED_SUFFIX_LENGTH = 8;
+    static constexpr uint64_t SHORT_STR_LENGTH = PREFIX_LENGTH + INLINED_SUFFIX_LENGTH;
+
+    uint32_t len;
+    uint8_t prefix[PREFIX_LENGTH];
+    union {
+        uint8_t data[INLINED_SUFFIX_LENGTH];
+        uint64_t overflowPtr;
+    };
+
+    ku_string_t() : len{0}, prefix{}, overflowPtr{0} {}
+    ku_string_t(const char* value, uint64_t length);
+
+    static bool isShortString(uint32_t len) { return len <= SHORT_STR_LENGTH; }
+
+    const uint8_t* getData() const {
+        return isShortString(len) ? prefix : reinterpret_cast<uint8_t*>(overflowPtr);
+    }
+
+    uint8_t* getDataUnsafe() {
+        return isShortString(len) ? prefix : reinterpret_cast<uint8_t*>(overflowPtr);
+    }
+
+    // These functions do *NOT* allocate/resize the overflow buffer, it only copies the content and
+    // set the length.
+    void set(const std::string& value);
+    void set(const char* value, uint64_t length);
+    void set(const ku_string_t& value);
+    void setShortString(const char* value, uint64_t length) {
+        this->len = length;
+        memcpy(prefix, value, length);
+    }
+    void setLongString(const char* value, uint64_t length) {
+        this->len = length;
+        memcpy(prefix, value, PREFIX_LENGTH);
+        memcpy(reinterpret_cast<char*>(overflowPtr), value, length);
+    }
+    void setShortString(const ku_string_t& value) {
+        this->len = value.len;
+        memcpy(prefix, value.prefix, value.len);
+    }
+    void setLongString(const ku_string_t& value) {
+        this->len = value.len;
+        memcpy(prefix, value.prefix, PREFIX_LENGTH);
+        memcpy(reinterpret_cast<char*>(overflowPtr), reinterpret_cast<char*>(value.overflowPtr),
+            value.len);
+    }
+
+    void setFromRawStr(const char* value, uint64_t length) {
+        this->len = length;
+        if (isShortString(length)) {
+            setShortString(value, length);
+        } else {
+            memcpy(prefix, value, PREFIX_LENGTH);
+            overflowPtr = reinterpret_cast<uint64_t>(value);
+        }
+    }
+
+    std::string getAsShortString() const;
+    std::string getAsString() const;
+    std::string_view getAsStringView() const;
+
+    bool operator==(const ku_string_t& rhs) const;
+
+    inline bool operator!=(const ku_string_t& rhs) const { return !(*this == rhs); }
+
+    bool operator>(const ku_string_t& rhs) const;
+
+    inline bool operator>=(const ku_string_t& rhs) const { return (*this > rhs) || (*this == rhs); }
+
+    inline bool operator<(const ku_string_t& rhs) const { return !(*this >= rhs); }
+
+    inline bool operator<=(const ku_string_t& rhs) const { return !(*this > rhs); }
+};
+
+} // namespace common
+} // namespace kuzu
 #include <cstdint>
 
 namespace kuzu {
@@ -1511,199 +1189,180 @@ namespace main {
 struct Version {
 public:
     /**
-     * @brief Get the version of the Kùzu library.
-     * @return const char* The version of the Kùzu library.
+     * @brief Get the version of the Kuzu library.
+     * @return const char* The version of the Kuzu library.
      */
     KUZU_API static const char* getVersion();
 
     /**
-     * @brief Get the storage version of the Kùzu library.
-     * @return uint64_t The storage version of the Kùzu library.
+     * @brief Get the storage version of the Kuzu library.
+     * @return uint64_t The storage version of the Kuzu library.
      */
     KUZU_API static uint64_t getStorageVersion();
 };
 } // namespace main
 } // namespace kuzu
 
+#include <cstdint>
+#include <string>
+#include <unordered_map>
+
 
 namespace kuzu {
+namespace storage {
+
+using storage_version_t = uint64_t;
+
+struct StorageVersionInfo {
+    static std::unordered_map<std::string, storage_version_t> getStorageVersionInfo() {
+        return {{"0.11.1", 39}, {"0.11.0", 39}, {"0.10.0", 38}, {"0.9.0", 37}, {"0.8.0", 36},
+            {"0.7.1.1", 35}, {"0.7.0", 34}, {"0.6.0.6", 33}, {"0.6.0.5", 32}, {"0.6.0.2", 31},
+            {"0.6.0.1", 31}, {"0.6.0", 28}, {"0.5.0", 28}, {"0.4.2", 27}, {"0.4.1", 27},
+            {"0.4.0", 27}, {"0.3.2", 26}, {"0.3.1", 26}, {"0.3.0", 26}, {"0.2.1", 25},
+            {"0.2.0", 25}, {"0.1.0", 24}, {"0.0.12.3", 24}, {"0.0.12.2", 24}, {"0.0.12.1", 24},
+            {"0.0.12", 23}, {"0.0.11", 23}, {"0.0.10", 23}, {"0.0.9", 23}, {"0.0.8", 17},
+            {"0.0.7", 15}, {"0.0.6", 9}, {"0.0.5", 8}, {"0.0.4", 7}, {"0.0.3", 1}};
+    }
+
+    static KUZU_API storage_version_t getStorageVersion();
+
+    static constexpr const char* MAGIC_BYTES = "KUZU";
+};
+
+} // namespace storage
+} // namespace kuzu
+
+#include <iterator>
+#include <memory>
+#include <vector>
+
+
+namespace kuzu {
+namespace storage {
+class MemoryBuffer;
+class MemoryManager;
+} // namespace storage
+
 namespace common {
 
-struct blob_t {
-    ku_string_t value;
+struct KUZU_API BufferBlock {
+public:
+    explicit BufferBlock(std::unique_ptr<storage::MemoryBuffer> block);
+    ~BufferBlock();
+
+    uint64_t size() const;
+    uint8_t* data() const;
+
+public:
+    uint64_t currentOffset;
+    std::unique_ptr<storage::MemoryBuffer> block;
+
+    void resetCurrentOffset() { currentOffset = 0; }
 };
 
-struct HexFormatConstants {
-    // map of integer -> hex value.
-    static constexpr const char* HEX_TABLE = "0123456789ABCDEF";
-    // reverse map of byte -> integer value, or -1 for invalid hex values.
-    static const int HEX_MAP[256];
-    static constexpr const uint64_t NUM_BYTES_TO_SHIFT_FOR_FIRST_BYTE = 4;
-    static constexpr const uint64_t SECOND_BYTE_MASK = 0x0F;
-    static constexpr const char PREFIX[] = "\\x";
-    static constexpr const uint64_t PREFIX_LENGTH = 2;
-    static constexpr const uint64_t FIRST_BYTE_POS = PREFIX_LENGTH;
-    static constexpr const uint64_t SECOND_BYTES_POS = PREFIX_LENGTH + 1;
-    static constexpr const uint64_t LENGTH = 4;
-};
+class KUZU_API InMemOverflowBuffer {
 
-struct Blob {
-    static std::string toString(const uint8_t* value, uint64_t len);
+public:
+    explicit InMemOverflowBuffer(storage::MemoryManager* memoryManager)
+        : memoryManager{memoryManager} {};
 
-    static inline std::string toString(const blob_t& blob) {
-        return toString(blob.value.getData(), blob.value.len);
+    DEFAULT_BOTH_MOVE(InMemOverflowBuffer);
+
+    uint8_t* allocateSpace(uint64_t size);
+
+    void merge(InMemOverflowBuffer& other) {
+        move(begin(other.blocks), end(other.blocks), back_inserter(blocks));
+        // We clear the other InMemOverflowBuffer's block because when it is deconstructed,
+        // InMemOverflowBuffer's deconstructed tries to free these pages by calling
+        // memoryManager->freeBlock, but it should not because this InMemOverflowBuffer still
+        // needs them.
+        other.blocks.clear();
     }
 
-    static uint64_t getBlobSize(const ku_string_t& blob);
+    // Releases all memory accumulated for string overflows so far and re-initializes its state to
+    // an empty buffer. If there is a large string that used point to any of these overflow buffers
+    // they will error.
+    void resetBuffer();
 
-    static uint64_t fromString(const char* str, uint64_t length, uint8_t* resultBuffer);
+    // Manually set the underlying memory buffer to evicted to avoid double free
+    void preventDestruction();
 
-    template<typename T>
-    static inline T getValue(const blob_t& data) {
-        return *reinterpret_cast<const T*>(data.value.getData());
-    }
-    template<typename T>
-    // NOLINTNEXTLINE(readability-non-const-parameter): Would cast away qualifiers.
-    static inline T getValue(char* data) {
-        return *reinterpret_cast<T*>(data);
-    }
+    storage::MemoryManager* getMemoryManager() { return memoryManager; }
 
 private:
-    static void validateHexCode(const uint8_t* blobStr, uint64_t length, uint64_t curPos);
+    bool requireNewBlock(uint64_t sizeToAllocate) {
+        return blocks.empty() ||
+               (currentBlock()->currentOffset + sizeToAllocate) > currentBlock()->size();
+    }
+
+    void allocateNewBlock(uint64_t size);
+
+    BufferBlock* currentBlock() { return blocks.back().get(); }
+
+private:
+    std::vector<std::unique_ptr<BufferBlock>> blocks;
+    storage::MemoryManager* memoryManager;
 };
 
 } // namespace common
 } // namespace kuzu
 
-#include <memory>
+#include <cstdint>
 #include <string>
-#include <vector>
 
 
 namespace kuzu {
-namespace common {
-class FileSystem;
-enum class LogicalTypeID : uint8_t;
-} // namespace common
-
-namespace function {
-struct Function;
-} // namespace function
-
-namespace extension {
-struct ExtensionUtils;
-struct ExtensionOptions;
-} // namespace extension
-
 namespace main {
-struct ExtensionOption;
 
-/**
- * @brief Stores runtime configuration for creating or opening a Database
- */
-struct KUZU_API SystemConfig {
-    /**
-     * @brief Creates a SystemConfig object.
-     * @param bufferPoolSize Max size of the buffer pool in bytes.
-     *        The larger the buffer pool, the more data from the database files is kept in memory,
-     *        reducing the amount of File I/O
-     * @param maxNumThreads The maximum number of threads to use during query execution
-     * @param enableCompression Whether or not to compress data on-disk for supported types
-     * @param readOnly If true, the database is opened read-only. No write transaction is
-     * allowed on the `Database` object. Multiple read-only `Database` objects can be created with
-     * the same database path. If false, the database is opened read-write. Under this mode,
-     * there must not be multiple `Database` objects created with the same database path.
-     * @param maxDBSize The maximum size of the database in bytes. Note that this is introduced
-     * temporarily for now to get around with the default 8TB mmap address space limit some
-     * environment. This will be removed once we implemente a better solution later. The value is
-     * default to 1 << 43 (8TB) under 64-bit environment and 1GB under 32-bit one (see
-     * `DEFAULT_VM_REGION_MAX_SIZE`).
-     */
-    explicit SystemConfig(uint64_t bufferPoolSize = -1u, uint64_t maxNumThreads = 0,
-        bool enableCompression = true, bool readOnly = false, uint64_t maxDBSize = -1u);
-
-    uint64_t bufferPoolSize;
-    uint64_t maxNumThreads;
-    bool enableCompression;
-    bool readOnly;
-    uint64_t maxDBSize;
+struct ClientConfigDefault {
+    // 0 means timeout is disabled by default.
+    static constexpr uint64_t TIMEOUT_IN_MS = 0;
+    static constexpr uint32_t VAR_LENGTH_MAX_DEPTH = 30;
+    static constexpr uint64_t SPARSE_FRONTIER_THRESHOLD = 1000;
+    static constexpr bool ENABLE_SEMI_MASK = true;
+    static constexpr bool ENABLE_ZONE_MAP = true;
+    static constexpr bool ENABLE_PROGRESS_BAR = false;
+    static constexpr uint64_t SHOW_PROGRESS_AFTER = 1000;
+    static constexpr common::PathSemantic RECURSIVE_PATTERN_SEMANTIC = common::PathSemantic::WALK;
+    static constexpr uint32_t RECURSIVE_PATTERN_FACTOR = 100;
+    static constexpr bool DISABLE_MAP_KEY_CHECK = true;
+    static constexpr uint64_t WARNING_LIMIT = 8 * 1024;
+    static constexpr bool ENABLE_PLAN_OPTIMIZER = true;
+    static constexpr bool ENABLE_INTERNAL_CATALOG = false;
 };
 
-/**
- * @brief Database class is the main class of KùzuDB. It manages all database components.
- */
-class Database {
-    friend class EmbeddedShell;
-    friend class ClientContext;
-    friend class Connection;
-    friend class StorageDriver;
-    friend class kuzu::testing::BaseGraphTest;
-    friend class kuzu::testing::PrivateGraphTest;
-    friend class transaction::TransactionContext;
-    friend struct extension::ExtensionUtils;
-
-public:
-    /**
-     * @brief Creates a database object.
-     * @param databasePath Database path.
-     * @param systemConfig System configurations (buffer pool size and max num threads).
-     */
-    KUZU_API explicit Database(
-        std::string_view databasePath, SystemConfig systemConfig = SystemConfig());
-    /**
-     * @brief Destructs the database object.
-     */
-    KUZU_API ~Database();
-
-    /**
-     * @brief Sets the logging level of the database instance.
-     * @param loggingLevel New logging level. (Supported logging levels are: "info", "debug",
-     * "err").
-     */
-    KUZU_API static void setLoggingLevel(std::string loggingLevel);
-
-    // TODO(Ziyi): Instead of exposing a dedicated API for adding a new function, we should consider
-    // add function through the extension module.
-    void addBuiltInFunction(
-        std::string name, std::vector<std::unique_ptr<function::Function>> functionSet);
-
-    KUZU_API void registerFileSystem(std::unique_ptr<common::FileSystem> fs);
-
-    KUZU_API void addExtensionOption(
-        std::string name, common::LogicalTypeID type, common::Value defaultValue);
-
-    ExtensionOption* getExtensionOption(std::string name);
-
-private:
-    void openLockFile();
-    void initDBDirAndCoreFilesIfNecessary();
-    static void initLoggers();
-    static void dropLoggers();
-
-    // Commits and checkpoints a write transaction or rolls that transaction back. This involves
-    // either replaying the WAL and either redoing or undoing and in either case at the end WAL is
-    // cleared.
-    // skipCheckpointForTestingRecovery is used to simulate a failure before checkpointing in tests.
-    void commit(transaction::Transaction* transaction, bool skipCheckpointForTestingRecovery);
-    void rollback(transaction::Transaction* transaction, bool skipCheckpointForTestingRecovery);
-    void checkpointAndClearWAL(storage::WALReplayMode walReplayMode);
-    void rollbackAndClearWAL();
-    void recoverIfNecessary();
-
-private:
-    std::string databasePath;
-    SystemConfig systemConfig;
-    std::unique_ptr<common::VirtualFileSystem> vfs;
-    std::unique_ptr<storage::BufferManager> bufferManager;
-    std::unique_ptr<storage::MemoryManager> memoryManager;
-    std::unique_ptr<processor::QueryProcessor> queryProcessor;
-    std::unique_ptr<catalog::Catalog> catalog;
-    std::unique_ptr<storage::StorageManager> storageManager;
-    std::unique_ptr<transaction::TransactionManager> transactionManager;
-    std::unique_ptr<storage::WAL> wal;
-    std::shared_ptr<spdlog::logger> logger;
-    std::unique_ptr<common::FileInfo> lockFile;
-    std::unique_ptr<extension::ExtensionOptions> extensionOptions;
+struct ClientConfig {
+    // System home directory.
+    std::string homeDirectory;
+    // File search path.
+    std::string fileSearchPath;
+    // If using semi mask in join.
+    bool enableSemiMask = ClientConfigDefault::ENABLE_SEMI_MASK;
+    // If using zone map in scan.
+    bool enableZoneMap = ClientConfigDefault::ENABLE_ZONE_MAP;
+    // Number of threads for execution.
+    uint64_t numThreads = 1;
+    // Timeout (milliseconds).
+    uint64_t timeoutInMS = ClientConfigDefault::TIMEOUT_IN_MS;
+    // Variable length maximum depth.
+    uint32_t varLengthMaxDepth = ClientConfigDefault::VAR_LENGTH_MAX_DEPTH;
+    // Threshold determines when to switch from sparse frontier to dense frontier
+    uint64_t sparseFrontierThreshold = ClientConfigDefault::SPARSE_FRONTIER_THRESHOLD;
+    // If using progress bar.
+    bool enableProgressBar = ClientConfigDefault::ENABLE_PROGRESS_BAR;
+    // time before displaying progress bar
+    uint64_t showProgressAfter = ClientConfigDefault::SHOW_PROGRESS_AFTER;
+    // Semantic for recursive pattern, can be either WALK, TRAIL, ACYCLIC
+    common::PathSemantic recursivePatternSemantic = ClientConfigDefault::RECURSIVE_PATTERN_SEMANTIC;
+    // Scale factor for recursive pattern cardinality estimation.
+    uint32_t recursivePatternCardinalityScaleFactor = ClientConfigDefault::RECURSIVE_PATTERN_FACTOR;
+    // Maximum number of cached warnings
+    uint64_t warningLimit = ClientConfigDefault::WARNING_LIMIT;
+    bool disableMapKeyCheck = ClientConfigDefault::DISABLE_MAP_KEY_CHECK;
+    // If enable plan optimizer
+    bool enablePlanOptimizer = ClientConfigDefault::ENABLE_PLAN_OPTIMIZER;
+    // If use internal catalog during binding
+    bool enableInternalCatalog = ClientConfigDefault::ENABLE_INTERNAL_CATALOG;
 };
 
 } // namespace main
@@ -1716,7 +1375,7 @@ namespace main {
 /**
  * @brief PreparedSummary stores the compiling time and query options of a query.
  */
-struct PreparedSummary {
+struct PreparedSummary { // NOLINT(*-pro-type-member-init)
     double compilingTime = 0;
     common::StatementType statementType;
 };
@@ -1725,7 +1384,7 @@ struct PreparedSummary {
  * @brief QuerySummary stores the execution time, plan, compiling time and query options of a query.
  */
 class QuerySummary {
-    friend class Connection;
+    friend class ClientContext;
     friend class benchmark::Benchmark;
 
 public:
@@ -1738,12 +1397,20 @@ public:
      */
     KUZU_API double getExecutionTime() const;
 
+    void incrementCompilingTime(double increment);
+    void incrementExecutionTime(double increment);
+
     void setPreparedSummary(PreparedSummary preparedSummary_);
 
     /**
      * @return true if the query is executed with EXPLAIN.
      */
     bool isExplain() const;
+
+    /**
+     * @return the statement type of the query.
+     */
+    common::StatementType getStatementType() const;
 
 private:
     double executionTime = 0;
@@ -1753,187 +1420,13 @@ private:
 } // namespace main
 } // namespace kuzu
 
-#include <algorithm>
-#include <memory>
-#include <utility>
-
 
 namespace kuzu {
-namespace common {
 
-constexpr uint64_t NULL_BITMASKS_WITH_SINGLE_ONE[64] = {0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
-    0x100, 0x200, 0x400, 0x800, 0x1000, 0x2000, 0x4000, 0x8000, 0x10000, 0x20000, 0x40000, 0x80000,
-    0x100000, 0x200000, 0x400000, 0x800000, 0x1000000, 0x2000000, 0x4000000, 0x8000000, 0x10000000,
-    0x20000000, 0x40000000, 0x80000000, 0x100000000, 0x200000000, 0x400000000, 0x800000000,
-    0x1000000000, 0x2000000000, 0x4000000000, 0x8000000000, 0x10000000000, 0x20000000000,
-    0x40000000000, 0x80000000000, 0x100000000000, 0x200000000000, 0x400000000000, 0x800000000000,
-    0x1000000000000, 0x2000000000000, 0x4000000000000, 0x8000000000000, 0x10000000000000,
-    0x20000000000000, 0x40000000000000, 0x80000000000000, 0x100000000000000, 0x200000000000000,
-    0x400000000000000, 0x800000000000000, 0x1000000000000000, 0x2000000000000000,
-    0x4000000000000000, 0x8000000000000000};
-constexpr uint64_t NULL_BITMASKS_WITH_SINGLE_ZERO[64] = {0xfffffffffffffffe, 0xfffffffffffffffd,
-    0xfffffffffffffffb, 0xfffffffffffffff7, 0xffffffffffffffef, 0xffffffffffffffdf,
-    0xffffffffffffffbf, 0xffffffffffffff7f, 0xfffffffffffffeff, 0xfffffffffffffdff,
-    0xfffffffffffffbff, 0xfffffffffffff7ff, 0xffffffffffffefff, 0xffffffffffffdfff,
-    0xffffffffffffbfff, 0xffffffffffff7fff, 0xfffffffffffeffff, 0xfffffffffffdffff,
-    0xfffffffffffbffff, 0xfffffffffff7ffff, 0xffffffffffefffff, 0xffffffffffdfffff,
-    0xffffffffffbfffff, 0xffffffffff7fffff, 0xfffffffffeffffff, 0xfffffffffdffffff,
-    0xfffffffffbffffff, 0xfffffffff7ffffff, 0xffffffffefffffff, 0xffffffffdfffffff,
-    0xffffffffbfffffff, 0xffffffff7fffffff, 0xfffffffeffffffff, 0xfffffffdffffffff,
-    0xfffffffbffffffff, 0xfffffff7ffffffff, 0xffffffefffffffff, 0xffffffdfffffffff,
-    0xffffffbfffffffff, 0xffffff7fffffffff, 0xfffffeffffffffff, 0xfffffdffffffffff,
-    0xfffffbffffffffff, 0xfffff7ffffffffff, 0xffffefffffffffff, 0xffffdfffffffffff,
-    0xffffbfffffffffff, 0xffff7fffffffffff, 0xfffeffffffffffff, 0xfffdffffffffffff,
-    0xfffbffffffffffff, 0xfff7ffffffffffff, 0xffefffffffffffff, 0xffdfffffffffffff,
-    0xffbfffffffffffff, 0xff7fffffffffffff, 0xfeffffffffffffff, 0xfdffffffffffffff,
-    0xfbffffffffffffff, 0xf7ffffffffffffff, 0xefffffffffffffff, 0xdfffffffffffffff,
-    0xbfffffffffffffff, 0x7fffffffffffffff};
+namespace regex {
+class RE2;
+}
 
-const uint64_t NULL_LOWER_MASKS[65] = {0x0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff,
-    0x3ff, 0x7ff, 0xfff, 0x1fff, 0x3fff, 0x7fff, 0xffff, 0x1ffff, 0x3ffff, 0x7ffff, 0xfffff,
-    0x1fffff, 0x3fffff, 0x7fffff, 0xffffff, 0x1ffffff, 0x3ffffff, 0x7ffffff, 0xfffffff, 0x1fffffff,
-    0x3fffffff, 0x7fffffff, 0xffffffff, 0x1ffffffff, 0x3ffffffff, 0x7ffffffff, 0xfffffffff,
-    0x1fffffffff, 0x3fffffffff, 0x7fffffffff, 0xffffffffff, 0x1ffffffffff, 0x3ffffffffff,
-    0x7ffffffffff, 0xfffffffffff, 0x1fffffffffff, 0x3fffffffffff, 0x7fffffffffff, 0xffffffffffff,
-    0x1ffffffffffff, 0x3ffffffffffff, 0x7ffffffffffff, 0xfffffffffffff, 0x1fffffffffffff,
-    0x3fffffffffffff, 0x7fffffffffffff, 0xffffffffffffff, 0x1ffffffffffffff, 0x3ffffffffffffff,
-    0x7ffffffffffffff, 0xfffffffffffffff, 0x1fffffffffffffff, 0x3fffffffffffffff,
-    0x7fffffffffffffff, 0xffffffffffffffff};
-const uint64_t NULL_HIGH_MASKS[65] = {0x0, 0x8000000000000000, 0xc000000000000000,
-    0xe000000000000000, 0xf000000000000000, 0xf800000000000000, 0xfc00000000000000,
-    0xfe00000000000000, 0xff00000000000000, 0xff80000000000000, 0xffc0000000000000,
-    0xffe0000000000000, 0xfff0000000000000, 0xfff8000000000000, 0xfffc000000000000,
-    0xfffe000000000000, 0xffff000000000000, 0xffff800000000000, 0xffffc00000000000,
-    0xffffe00000000000, 0xfffff00000000000, 0xfffff80000000000, 0xfffffc0000000000,
-    0xfffffe0000000000, 0xffffff0000000000, 0xffffff8000000000, 0xffffffc000000000,
-    0xffffffe000000000, 0xfffffff000000000, 0xfffffff800000000, 0xfffffffc00000000,
-    0xfffffffe00000000, 0xffffffff00000000, 0xffffffff80000000, 0xffffffffc0000000,
-    0xffffffffe0000000, 0xfffffffff0000000, 0xfffffffff8000000, 0xfffffffffc000000,
-    0xfffffffffe000000, 0xffffffffff000000, 0xffffffffff800000, 0xffffffffffc00000,
-    0xffffffffffe00000, 0xfffffffffff00000, 0xfffffffffff80000, 0xfffffffffffc0000,
-    0xfffffffffffe0000, 0xffffffffffff0000, 0xffffffffffff8000, 0xffffffffffffc000,
-    0xffffffffffffe000, 0xfffffffffffff000, 0xfffffffffffff800, 0xfffffffffffffc00,
-    0xfffffffffffffe00, 0xffffffffffffff00, 0xffffffffffffff80, 0xffffffffffffffc0,
-    0xffffffffffffffe0, 0xfffffffffffffff0, 0xfffffffffffffff8, 0xfffffffffffffffc,
-    0xfffffffffffffffe, 0xffffffffffffffff};
-
-class NullMask {
-
-public:
-    static constexpr uint64_t NO_NULL_ENTRY = 0;
-    static constexpr uint64_t ALL_NULL_ENTRY = ~uint64_t(NO_NULL_ENTRY);
-    static constexpr uint64_t NUM_BITS_PER_NULL_ENTRY_LOG2 = 6;
-    static constexpr uint64_t NUM_BITS_PER_NULL_ENTRY = (uint64_t)1 << NUM_BITS_PER_NULL_ENTRY_LOG2;
-    static constexpr uint64_t NUM_BYTES_PER_NULL_ENTRY = NUM_BITS_PER_NULL_ENTRY >> 3;
-    static constexpr uint64_t DEFAULT_NUM_NULL_ENTRIES =
-        DEFAULT_VECTOR_CAPACITY >> NUM_BITS_PER_NULL_ENTRY_LOG2;
-
-    NullMask() : NullMask{DEFAULT_NUM_NULL_ENTRIES} {}
-
-    explicit NullMask(uint64_t numNullEntries)
-        : mayContainNulls{false}, numNullEntries{numNullEntries} {
-        buffer = std::make_unique<uint64_t[]>(numNullEntries);
-        data = buffer.get();
-        std::fill(data, data + numNullEntries, NO_NULL_ENTRY);
-    }
-
-    inline void setAllNonNull() {
-        if (!mayContainNulls) {
-            return;
-        }
-        std::fill(data, data + numNullEntries, NO_NULL_ENTRY);
-        mayContainNulls = false;
-    }
-    inline void setAllNull() {
-        std::fill(data, data + numNullEntries, ALL_NULL_ENTRY);
-        mayContainNulls = true;
-    }
-
-    inline bool hasNoNullsGuarantee() const { return !mayContainNulls; }
-
-    static void setNull(uint64_t* nullEntries, uint32_t pos, bool isNull);
-    inline void setNull(uint32_t pos, bool isNull) {
-        setNull(data, pos, isNull);
-        if (isNull) {
-            mayContainNulls = true;
-        }
-    }
-
-    static inline bool isNull(const uint64_t* nullEntries, uint32_t pos) {
-        auto [entryPos, bitPosInEntry] = getNullEntryAndBitPos(pos);
-        return nullEntries[entryPos] & NULL_BITMASKS_WITH_SINGLE_ONE[bitPosInEntry];
-    }
-
-    inline bool isNull(uint32_t pos) const { return isNull(data, pos); }
-
-    // const because updates to the data must set mayContainNulls if any value
-    // becomes non-null
-    // Modifying the underlying data should be done with setNull or copyFromNullData
-    inline const uint64_t* getData() { return data; }
-
-    static inline uint64_t getNumNullEntries(uint64_t numNullBits) {
-        return (numNullBits >> NUM_BITS_PER_NULL_ENTRY_LOG2) +
-               ((numNullBits - (numNullBits << NUM_BITS_PER_NULL_ENTRY_LOG2)) == 0 ? 0 : 1);
-    }
-
-    // Copies bitpacked null flags from one buffer to another, starting at an arbitrary bit
-    // offset and preserving adjacent bits.
-    //
-    // returns true if we have copied a nullBit with value 1 (indicates a null value) to
-    // dstNullEntries.
-    static bool copyNullMask(const uint64_t* srcNullEntries, uint64_t srcOffset,
-        uint64_t* dstNullEntries, uint64_t dstOffset, uint64_t numBitsToCopy, bool invert = false);
-
-    bool copyFromNullBits(const uint64_t* srcNullEntries, uint64_t srcOffset, uint64_t dstOffset,
-        uint64_t numBitsToCopy);
-
-    // Sets the given number of bits to null (if isNull is true) or non-null (if isNull is false),
-    // starting at the offset
-    static void setNullRange(
-        uint64_t* nullEntries, uint64_t offset, uint64_t numBitsToSet, bool isNull);
-
-    void setNullFromRange(uint64_t offset, uint64_t numBitsToSet, bool isNull);
-
-    void resize(uint64_t capacity);
-
-private:
-    static inline std::pair<uint64_t, uint64_t> getNullEntryAndBitPos(uint64_t pos) {
-        auto nullEntryPos = pos >> NUM_BITS_PER_NULL_ENTRY_LOG2;
-        return std::make_pair(
-            nullEntryPos, pos - (nullEntryPos << NullMask::NUM_BITS_PER_NULL_ENTRY_LOG2));
-    }
-
-private:
-    uint64_t* data;
-    std::unique_ptr<uint64_t[]> buffer;
-    bool mayContainNulls;
-    uint64_t numNullEntries;
-};
-
-} // namespace common
-} // namespace kuzu
-
-
-namespace kuzu {
-namespace parser {
-
-class Statement {
-public:
-    explicit Statement(common::StatementType statementType) : statementType{statementType} {}
-
-    virtual ~Statement() = default;
-
-    inline common::StatementType getStatementType() const { return statementType; }
-
-private:
-    common::StatementType statementType;
-};
-
-} // namespace parser
-} // namespace kuzu
-
-
-namespace kuzu {
 namespace common {
 
 struct timestamp_t;
@@ -2004,8 +1497,8 @@ public:
     // Convert a date object to a string in the format "YYYY-MM-DD"
     KUZU_API static std::string toString(date_t date);
     // Try to convert text in a buffer to a date; returns true if parsing was successful
-    KUZU_API static bool tryConvertDate(
-        const char* buf, uint64_t len, uint64_t& pos, date_t& result);
+    KUZU_API static bool tryConvertDate(const char* buf, uint64_t len, uint64_t& pos,
+        date_t& result, bool allowTrailing = false);
 
     // private:
     // Returns true if (year) is a leap year, and false otherwise
@@ -2014,28 +1507,30 @@ public:
     // date
     KUZU_API static bool isValid(int32_t year, int32_t month, int32_t day);
     // Extract the year, month and day from a given date object
-    KUZU_API static void convert(
-        date_t date, int32_t& out_year, int32_t& out_month, int32_t& out_day);
+    KUZU_API static void convert(date_t date, int32_t& out_year, int32_t& out_month,
+        int32_t& out_day);
     // Create a Date object from a specified (year, month, day) combination
     KUZU_API static date_t fromDate(int32_t year, int32_t month, int32_t day);
 
     // Helper function to parse two digits from a string (e.g. "30" -> 30, "03" -> 3, "3" -> 3)
-    KUZU_API static bool parseDoubleDigit(
-        const char* buf, uint64_t len, uint64_t& pos, int32_t& result);
+    KUZU_API static bool parseDoubleDigit(const char* buf, uint64_t len, uint64_t& pos,
+        int32_t& result);
 
     KUZU_API static int32_t monthDays(int32_t year, int32_t month);
 
-    KUZU_API static std::string getDayName(date_t& date);
+    KUZU_API static std::string getDayName(date_t date);
 
-    KUZU_API static std::string getMonthName(date_t& date);
+    KUZU_API static std::string getMonthName(date_t date);
 
-    KUZU_API static date_t getLastDay(date_t& date);
+    KUZU_API static date_t getLastDay(date_t date);
 
-    KUZU_API static int32_t getDatePart(DatePartSpecifier specifier, date_t& date);
+    KUZU_API static int32_t getDatePart(DatePartSpecifier specifier, date_t date);
 
-    KUZU_API static date_t trunc(DatePartSpecifier specifier, date_t& date);
+    KUZU_API static date_t trunc(DatePartSpecifier specifier, date_t date);
 
     KUZU_API static int64_t getEpochNanoSeconds(const date_t& date);
+
+    KUZU_API static const regex::RE2& regexPattern();
 
 private:
     static void extractYearOffset(int32_t& n, int32_t& year, int32_t& year_offset);
@@ -2046,6 +1541,11 @@ private:
 
 
 namespace kuzu {
+
+namespace regex {
+class RE2;
+}
+
 namespace common {
 
 class RandomEngine;
@@ -2070,6 +1570,8 @@ struct UUID {
     static std::string toString(ku_uuid_t val);
 
     static ku_uuid_t generateRandomUUID(RandomEngine* engine);
+
+    static const regex::RE2& regexPattern();
 };
 
 } // namespace common
@@ -2082,18 +1584,6 @@ namespace common {
 class KUZU_API InternalException : public Exception {
 public:
     explicit InternalException(const std::string& msg) : Exception(msg){};
-};
-
-} // namespace common
-} // namespace kuzu
-
-
-namespace kuzu {
-namespace common {
-
-class KUZU_API RuntimeException : public Exception {
-public:
-    explicit RuntimeException(const std::string& msg) : Exception("Runtime exception: " + msg){};
 };
 
 } // namespace common
@@ -2125,97 +1615,52 @@ public:
 
 
 namespace kuzu {
-namespace storage {
-class Column;
-}
+namespace common {
 
-namespace main {
-
-class KUZU_API StorageDriver {
-public:
-    explicit StorageDriver(Database* database);
-
-    ~StorageDriver() = default;
-
-    void scan(const std::string& nodeName, const std::string& propertyName,
-        common::offset_t* offsets, size_t size, uint8_t* result, size_t numThreads);
-
-    uint64_t getNumNodes(const std::string& nodeName);
-    uint64_t getNumRels(const std::string& relName);
-
-private:
-    void scanColumn(transaction::Transaction* transaction, storage::Column* column,
-        common::offset_t* offsets, size_t size, uint8_t* result);
-
-private:
-    catalog::Catalog* catalog;
-    storage::StorageManager* storageManager;
+struct blob_t {
+    ku_string_t value;
 };
 
-} // namespace main
-} // namespace kuzu
+struct HexFormatConstants {
+    // map of integer -> hex value.
+    static constexpr const char* HEX_TABLE = "0123456789ABCDEF";
+    // reverse map of byte -> integer value, or -1 for invalid hex values.
+    static const int HEX_MAP[256];
+    static constexpr const uint64_t NUM_BYTES_TO_SHIFT_FOR_FIRST_BYTE = 4;
+    static constexpr const uint64_t SECOND_BYTE_MASK = 0x0F;
+    static constexpr const char PREFIX[] = "\\x";
+    static constexpr const uint64_t PREFIX_LENGTH = 2;
+    static constexpr const uint64_t FIRST_BYTE_POS = PREFIX_LENGTH;
+    static constexpr const uint64_t SECOND_BYTES_POS = PREFIX_LENGTH + 1;
+    static constexpr const uint64_t LENGTH = 4;
+};
 
-#include <memory>
-#include <string>
-#include <unordered_map>
-#include <vector>
+struct Blob {
+    static std::string toString(const uint8_t* value, uint64_t len);
 
-
-namespace kuzu {
-namespace main {
-
-/**
- * @brief A prepared statement is a parameterized query which can avoid planning the same query for
- * repeated execution.
- */
-class PreparedStatement {
-    friend class Connection;
-    friend class testing::TestHelper;
-    friend class testing::TestRunner;
-    friend class testing::TinySnbDDLTest;
-    friend class testing::TinySnbCopyCSVTransactionTest;
-
-public:
-    /**
-     * @brief DDL and COPY statements are automatically wrapped in a transaction and committed.
-     * As such, they cannot be part of an active transaction.
-     * @return the prepared statement is allowed to be part of an active transaction.
-     */
-    KUZU_API bool allowActiveTransaction() const;
-    bool isTransactionStatement() const;
-    /**
-     * @return the query is prepared successfully or not.
-     */
-    KUZU_API bool isSuccess() const;
-    /**
-     * @return the error message if the query is not prepared successfully.
-     */
-    KUZU_API std::string getErrorMessage() const;
-    /**
-     * @return the prepared statement is read-only or not.
-     */
-    KUZU_API bool isReadOnly() const;
-
-    inline std::unordered_map<std::string, std::shared_ptr<common::Value>> getParameterMap() {
-        return parameterMap;
+    static inline std::string toString(const blob_t& blob) {
+        return toString(blob.value.getData(), blob.value.len);
     }
 
-    KUZU_API ~PreparedStatement();
+    static uint64_t getBlobSize(const ku_string_t& blob);
+
+    static uint64_t fromString(const char* str, uint64_t length, uint8_t* resultBuffer);
+
+    template<typename T>
+    static inline T getValue(const blob_t& data) {
+        return *reinterpret_cast<const T*>(data.value.getData());
+    }
+    template<typename T>
+    // NOLINTNEXTLINE(readability-non-const-parameter): Would cast away qualifiers.
+    static inline T getValue(char* data) {
+        return *reinterpret_cast<T*>(data);
+    }
 
 private:
-    bool isProfile();
-
-private:
-    bool success = true;
-    bool readOnly = false;
-    std::string errMsg;
-    PreparedSummary preparedSummary;
-    std::unordered_map<std::string, std::shared_ptr<common::Value>> parameterMap;
-    std::unique_ptr<binder::BoundStatementResult> statementResult;
-    std::vector<std::unique_ptr<planner::LogicalPlan>> logicalPlans;
+    static void validateHexCode(const uint8_t* blobStr, uint64_t length, uint64_t curPos);
 };
 
-} // namespace main
+} // namespace common
 } // namespace kuzu
 
 
@@ -2285,6 +1730,12 @@ public:
     // Convert a timestamp object to a std::string in the format "YYYY-MM-DD hh:mm:ss".
     KUZU_API static std::string toString(timestamp_t timestamp);
 
+    // Date header is in the format: %Y%m%d.
+    KUZU_API static std::string getDateHeader(const timestamp_t& timestamp);
+
+    // Timestamp header is in the format: %Y%m%dT%H%M%SZ.
+    KUZU_API static std::string getDateTimeHeader(const timestamp_t& timestamp);
+
     KUZU_API static date_t getDate(timestamp_t timestamp);
 
     KUZU_API static dtime_t getTime(timestamp_t timestamp);
@@ -2309,9 +1760,9 @@ public:
     // Create a Timestamp object from the specified epochNs.
     KUZU_API static timestamp_t fromEpochNanoSeconds(int64_t ns);
 
-    KUZU_API static int32_t getTimestampPart(DatePartSpecifier specifier, timestamp_t& timestamp);
+    KUZU_API static int32_t getTimestampPart(DatePartSpecifier specifier, timestamp_t timestamp);
 
-    KUZU_API static timestamp_t trunc(DatePartSpecifier specifier, timestamp_t& date);
+    KUZU_API static timestamp_t trunc(DatePartSpecifier specifier, timestamp_t date);
 
     KUZU_API static int64_t getEpochNanoSeconds(const timestamp_t& timestamp);
 
@@ -2319,11 +1770,11 @@ public:
 
     KUZU_API static int64_t getEpochSeconds(const timestamp_t& timestamp);
 
-    KUZU_API static bool tryParseUTCOffset(
-        const char* str, uint64_t& pos, uint64_t len, int& hour_offset, int& minute_offset);
+    KUZU_API static bool tryParseUTCOffset(const char* str, uint64_t& pos, uint64_t len,
+        int& hour_offset, int& minute_offset);
 
-    static std::string getTimestampConversionExceptionMsg(
-        const char* str, uint64_t len, const std::string& typeID = "TIMESTAMP") {
+    static std::string getTimestampConversionExceptionMsg(const char* str, uint64_t len,
+        const std::string& typeID = "TIMESTAMP") {
         return "Error occurred during parsing " + typeID + ". Given: \"" + std::string(str, len) +
                "\". Expected format: (YYYY-MM-DD hh:mm:ss[.zzzzzz][+-TT[:tt]])";
     }
@@ -2336,15 +1787,28 @@ public:
 
 #include <string>
 #include <string_view>
-#include <type_traits>
-
+#if USE_STD_FORMAT
+#include <format>
+#else
+#endif
 
 namespace kuzu {
 namespace common {
 
+#if USE_STD_FORMAT
+
+template<typename... Args>
+inline std::string stringFormat(std::format_string<Args...> format, Args&&... args) {
+    return std::format(format, std::forward<Args>(args)...);
+}
+
+#else
+
 namespace string_format_detail {
 #define MAP_STD_TO_STRING(typ)                                                                     \
-    inline std::string map(typ v) { return std::to_string(v); }
+    inline std::string map(typ v) {                                                                \
+        return std::to_string(v);                                                                  \
+    }
 
 MAP_STD_TO_STRING(short)
 MAP_STD_TO_STRING(unsigned short)
@@ -2359,14 +1823,16 @@ MAP_STD_TO_STRING(double)
 #undef MAP_STD_TO_STRING
 
 #define MAP_SELF(typ)                                                                              \
-    inline typ map(typ v) { return v; }
+    inline typ map(typ v) {                                                                        \
+        return v;                                                                                  \
+    }
 MAP_SELF(const char*);
 // Also covers std::string
 MAP_SELF(std::string_view)
 
-// chars are mapped to themselves, but signed char and unsigned char (which are used for int8_t and
+// Chars are mapped to themselves, but signed char and unsigned char (which are used for int8_t and
 // uint8_t respectively), need to be cast to be properly output as integers. This is consistent with
-// fmt's behaviour.
+// fmt's behavior.
 MAP_SELF(char)
 inline std::string map(signed char v) {
     return std::to_string(int(v));
@@ -2398,8 +1864,8 @@ inline void stringFormatHelper(std::string& ret, std::string_view format, Args&&
 }
 
 template<typename Arg, typename... Args>
-inline void stringFormatHelper(
-    std::string& ret, std::string_view format, Arg&& arg, Args&&... args) {
+inline void stringFormatHelper(std::string& ret, std::string_view format, Arg&& arg,
+    Args&&... args) {
     size_t bracket = format.find('{');
     if (bracket == std::string_view::npos) {
         throw InternalException("Too many values for string_format.");
@@ -2408,8 +1874,8 @@ inline void stringFormatHelper(
     if (format.substr(bracket, 4) == "{{}}") {
         // Escaped {}.
         ret += "{}";
-        return stringFormatHelper(
-            ret, format.substr(bracket + 4), std::forward<Arg>(arg), std::forward<Args>(args)...);
+        return stringFormatHelper(ret, format.substr(bracket + 4), std::forward<Arg>(arg),
+            std::forward<Args>(args)...);
     } else if (format.substr(bracket, 2) == "{}") {
         // Formatted {}.
         ret += map(arg);
@@ -2417,20 +1883,22 @@ inline void stringFormatHelper(
     }
     // Something else.
     ret.push_back('{');
-    return stringFormatHelper(
-        ret, format.substr(bracket + 1), std::forward<Arg>(arg), std::forward<Args>(args)...);
+    return stringFormatHelper(ret, format.substr(bracket + 1), std::forward<Arg>(arg),
+        std::forward<Args>(args)...);
 }
 } // namespace string_format_detail
 
-//! Formats `args` according to `format`. Accepts {} for formatting the argument and {{}} for
-//! a literal {}. Formatting is done with std::ostream::operator<<.
+// Formats `args` according to `format`. Accepts {} for formatting the argument and {{}} for
+// a literal {}. Formatting is done with std::ostream::operator<<.
 template<typename... Args>
-inline std::string stringFormat(std::string_view format, Args... args) {
+inline std::string stringFormat(std::string_view format, Args&&... args) {
     std::string ret;
     ret.reserve(32); // Optimistic pre-allocation.
     string_format_detail::stringFormatHelper(ret, format, std::forward<Args>(args)...);
     return ret;
 }
+
+#endif
 
 } // namespace common
 } // namespace kuzu
@@ -2439,25 +1907,304 @@ inline std::string stringFormat(std::string_view format, Args... args) {
 namespace kuzu {
 namespace common {
 
-[[noreturn]] inline void kuAssertFailureInternal(
-    const char* condition_name, const char* file, int linenr) {
+[[noreturn]] inline void kuAssertFailureInternal(const char* condition_name, const char* file,
+    int linenr) {
     // LCOV_EXCL_START
-    throw InternalException(stringFormat(
-        "Assertion failed in file \"{}\" on line {}: {}", file, linenr, condition_name));
+    throw InternalException(stringFormat("Assertion failed in file \"{}\" on line {}: {}", file,
+        linenr, condition_name));
     // LCOV_EXCL_STOP
 }
 
-#if defined(KUZU_RUNTIME_CHECKS) || !defined(NDEBUG)
-#define KU_ASSERT(condition)                                                                       \
+#define KU_ASSERT_UNCONDITIONAL(condition)                                                         \
     static_cast<bool>(condition) ?                                                                 \
         void(0) :                                                                                  \
         kuzu::common::kuAssertFailureInternal(#condition, __FILE__, __LINE__)
+
+#if defined(KUZU_RUNTIME_CHECKS) || !defined(NDEBUG)
+#define RUNTIME_CHECK(code) code
+#define KU_ASSERT(condition) KU_ASSERT_UNCONDITIONAL(condition)
 #else
 #define KU_ASSERT(condition) void(0)
+#define RUNTIME_CHECK(code) void(0)
 #endif
 
 #define KU_UNREACHABLE                                                                             \
-    [[unlikely]] kuzu::common::kuAssertFailureInternal("KU_UNREACHABLE", __FILE__, __LINE__)
+    /* LCOV_EXCL_START */ [[unlikely]] kuzu::common::kuAssertFailureInternal("KU_UNREACHABLE",     \
+        __FILE__, __LINE__) /* LCOV_EXCL_STOP */
+#define KU_UNUSED(expr) (void)(expr)
+
+} // namespace common
+} // namespace kuzu
+
+#include <typeinfo>
+
+
+namespace kuzu {
+namespace common {
+
+template<typename TO, typename FROM>
+TO ku_dynamic_cast(FROM* old) {
+#if defined(KUZU_RUNTIME_CHECKS) || !defined(NDEBUG)
+    static_assert(std::is_pointer<TO>());
+    TO newVal = dynamic_cast<TO>(old);
+    KU_ASSERT(newVal != nullptr);
+    return newVal;
+#else
+    return reinterpret_cast<TO>(old);
+#endif
+}
+
+template<typename TO, typename FROM>
+TO ku_dynamic_cast(FROM& old) {
+#if defined(KUZU_RUNTIME_CHECKS) || !defined(NDEBUG)
+    static_assert(std::is_reference<TO>());
+    try {
+        TO newVal = dynamic_cast<TO>(old);
+        return newVal;
+    } catch (std::bad_cast& e) {
+        KU_ASSERT(false);
+    }
+#else
+    return reinterpret_cast<TO>(old);
+#endif
+}
+
+} // namespace common
+} // namespace kuzu
+
+#include <chrono>
+#include <string>
+
+
+namespace kuzu {
+namespace common {
+
+class Timer {
+
+public:
+    void start() {
+        finished = false;
+        startTime = std::chrono::high_resolution_clock::now();
+    }
+
+    void stop() {
+        stopTime = std::chrono::high_resolution_clock::now();
+        finished = true;
+    }
+
+    double getDuration() const {
+        if (finished) {
+            auto duration = stopTime - startTime;
+            return (double)std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+        }
+        throw Exception("Timer is still running.");
+    }
+
+    uint64_t getElapsedTimeInMS() const {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto duration = now - startTime;
+        auto count = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+        KU_ASSERT(count >= 0);
+        return count;
+    }
+
+private:
+    std::chrono::time_point<std::chrono::high_resolution_clock> startTime;
+    std::chrono::time_point<std::chrono::high_resolution_clock> stopTime;
+    bool finished = false;
+};
+
+} // namespace common
+} // namespace kuzu
+
+#include <cstdint>
+#include <memory>
+
+#include <span>
+
+namespace kuzu {
+namespace common {
+
+class ArrowNullMaskTree;
+class Serializer;
+class Deserializer;
+
+constexpr uint64_t NULL_BITMASKS_WITH_SINGLE_ONE[64] = {0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80,
+    0x100, 0x200, 0x400, 0x800, 0x1000, 0x2000, 0x4000, 0x8000, 0x10000, 0x20000, 0x40000, 0x80000,
+    0x100000, 0x200000, 0x400000, 0x800000, 0x1000000, 0x2000000, 0x4000000, 0x8000000, 0x10000000,
+    0x20000000, 0x40000000, 0x80000000, 0x100000000, 0x200000000, 0x400000000, 0x800000000,
+    0x1000000000, 0x2000000000, 0x4000000000, 0x8000000000, 0x10000000000, 0x20000000000,
+    0x40000000000, 0x80000000000, 0x100000000000, 0x200000000000, 0x400000000000, 0x800000000000,
+    0x1000000000000, 0x2000000000000, 0x4000000000000, 0x8000000000000, 0x10000000000000,
+    0x20000000000000, 0x40000000000000, 0x80000000000000, 0x100000000000000, 0x200000000000000,
+    0x400000000000000, 0x800000000000000, 0x1000000000000000, 0x2000000000000000,
+    0x4000000000000000, 0x8000000000000000};
+constexpr uint64_t NULL_BITMASKS_WITH_SINGLE_ZERO[64] = {0xfffffffffffffffe, 0xfffffffffffffffd,
+    0xfffffffffffffffb, 0xfffffffffffffff7, 0xffffffffffffffef, 0xffffffffffffffdf,
+    0xffffffffffffffbf, 0xffffffffffffff7f, 0xfffffffffffffeff, 0xfffffffffffffdff,
+    0xfffffffffffffbff, 0xfffffffffffff7ff, 0xffffffffffffefff, 0xffffffffffffdfff,
+    0xffffffffffffbfff, 0xffffffffffff7fff, 0xfffffffffffeffff, 0xfffffffffffdffff,
+    0xfffffffffffbffff, 0xfffffffffff7ffff, 0xffffffffffefffff, 0xffffffffffdfffff,
+    0xffffffffffbfffff, 0xffffffffff7fffff, 0xfffffffffeffffff, 0xfffffffffdffffff,
+    0xfffffffffbffffff, 0xfffffffff7ffffff, 0xffffffffefffffff, 0xffffffffdfffffff,
+    0xffffffffbfffffff, 0xffffffff7fffffff, 0xfffffffeffffffff, 0xfffffffdffffffff,
+    0xfffffffbffffffff, 0xfffffff7ffffffff, 0xffffffefffffffff, 0xffffffdfffffffff,
+    0xffffffbfffffffff, 0xffffff7fffffffff, 0xfffffeffffffffff, 0xfffffdffffffffff,
+    0xfffffbffffffffff, 0xfffff7ffffffffff, 0xffffefffffffffff, 0xffffdfffffffffff,
+    0xffffbfffffffffff, 0xffff7fffffffffff, 0xfffeffffffffffff, 0xfffdffffffffffff,
+    0xfffbffffffffffff, 0xfff7ffffffffffff, 0xffefffffffffffff, 0xffdfffffffffffff,
+    0xffbfffffffffffff, 0xff7fffffffffffff, 0xfeffffffffffffff, 0xfdffffffffffffff,
+    0xfbffffffffffffff, 0xf7ffffffffffffff, 0xefffffffffffffff, 0xdfffffffffffffff,
+    0xbfffffffffffffff, 0x7fffffffffffffff};
+
+const uint64_t NULL_LOWER_MASKS[65] = {0x0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff,
+    0x3ff, 0x7ff, 0xfff, 0x1fff, 0x3fff, 0x7fff, 0xffff, 0x1ffff, 0x3ffff, 0x7ffff, 0xfffff,
+    0x1fffff, 0x3fffff, 0x7fffff, 0xffffff, 0x1ffffff, 0x3ffffff, 0x7ffffff, 0xfffffff, 0x1fffffff,
+    0x3fffffff, 0x7fffffff, 0xffffffff, 0x1ffffffff, 0x3ffffffff, 0x7ffffffff, 0xfffffffff,
+    0x1fffffffff, 0x3fffffffff, 0x7fffffffff, 0xffffffffff, 0x1ffffffffff, 0x3ffffffffff,
+    0x7ffffffffff, 0xfffffffffff, 0x1fffffffffff, 0x3fffffffffff, 0x7fffffffffff, 0xffffffffffff,
+    0x1ffffffffffff, 0x3ffffffffffff, 0x7ffffffffffff, 0xfffffffffffff, 0x1fffffffffffff,
+    0x3fffffffffffff, 0x7fffffffffffff, 0xffffffffffffff, 0x1ffffffffffffff, 0x3ffffffffffffff,
+    0x7ffffffffffffff, 0xfffffffffffffff, 0x1fffffffffffffff, 0x3fffffffffffffff,
+    0x7fffffffffffffff, 0xffffffffffffffff};
+const uint64_t NULL_HIGH_MASKS[65] = {0x0, 0x8000000000000000, 0xc000000000000000,
+    0xe000000000000000, 0xf000000000000000, 0xf800000000000000, 0xfc00000000000000,
+    0xfe00000000000000, 0xff00000000000000, 0xff80000000000000, 0xffc0000000000000,
+    0xffe0000000000000, 0xfff0000000000000, 0xfff8000000000000, 0xfffc000000000000,
+    0xfffe000000000000, 0xffff000000000000, 0xffff800000000000, 0xffffc00000000000,
+    0xffffe00000000000, 0xfffff00000000000, 0xfffff80000000000, 0xfffffc0000000000,
+    0xfffffe0000000000, 0xffffff0000000000, 0xffffff8000000000, 0xffffffc000000000,
+    0xffffffe000000000, 0xfffffff000000000, 0xfffffff800000000, 0xfffffffc00000000,
+    0xfffffffe00000000, 0xffffffff00000000, 0xffffffff80000000, 0xffffffffc0000000,
+    0xffffffffe0000000, 0xfffffffff0000000, 0xfffffffff8000000, 0xfffffffffc000000,
+    0xfffffffffe000000, 0xffffffffff000000, 0xffffffffff800000, 0xffffffffffc00000,
+    0xffffffffffe00000, 0xfffffffffff00000, 0xfffffffffff80000, 0xfffffffffffc0000,
+    0xfffffffffffe0000, 0xffffffffffff0000, 0xffffffffffff8000, 0xffffffffffffc000,
+    0xffffffffffffe000, 0xfffffffffffff000, 0xfffffffffffff800, 0xfffffffffffffc00,
+    0xfffffffffffffe00, 0xffffffffffffff00, 0xffffffffffffff80, 0xffffffffffffffc0,
+    0xffffffffffffffe0, 0xfffffffffffffff0, 0xfffffffffffffff8, 0xfffffffffffffffc,
+    0xfffffffffffffffe, 0xffffffffffffffff};
+
+class KUZU_API NullMask {
+public:
+    static constexpr uint64_t NO_NULL_ENTRY = 0;
+    static constexpr uint64_t ALL_NULL_ENTRY = ~uint64_t(NO_NULL_ENTRY);
+    static constexpr uint64_t NUM_BITS_PER_NULL_ENTRY_LOG2 = 6;
+    static constexpr uint64_t NUM_BITS_PER_NULL_ENTRY = (uint64_t)1 << NUM_BITS_PER_NULL_ENTRY_LOG2;
+    static constexpr uint64_t NUM_BYTES_PER_NULL_ENTRY = NUM_BITS_PER_NULL_ENTRY >> 3;
+
+    // For creating a managed null mask
+    explicit NullMask(uint64_t capacity) : mayContainNulls{false} {
+        auto numNullEntries = (capacity + NUM_BITS_PER_NULL_ENTRY - 1) / NUM_BITS_PER_NULL_ENTRY;
+        buffer = std::make_unique<uint64_t[]>(numNullEntries);
+        data = std::span(buffer.get(), numNullEntries);
+        std::fill(data.begin(), data.end(), NO_NULL_ENTRY);
+    }
+
+    // For creating a null mask using existing data
+    explicit NullMask(std::span<uint64_t> nullData, bool mayContainNulls)
+        : data{nullData}, buffer{}, mayContainNulls{mayContainNulls} {}
+
+    inline void setAllNonNull() {
+        if (!mayContainNulls) {
+            return;
+        }
+        std::fill(data.begin(), data.end(), NO_NULL_ENTRY);
+        mayContainNulls = false;
+    }
+    inline void setAllNull() {
+        std::fill(data.begin(), data.end(), ALL_NULL_ENTRY);
+        mayContainNulls = true;
+    }
+
+    inline bool hasNoNullsGuarantee() const { return !mayContainNulls; }
+    uint64_t countNulls() const;
+
+    static void setNull(uint64_t* nullEntries, uint32_t pos, bool isNull);
+    inline void setNull(uint32_t pos, bool isNull) {
+        KU_ASSERT(pos < getNumNullBits(data));
+        setNull(data.data(), pos, isNull);
+        if (isNull) {
+            mayContainNulls = true;
+        }
+    }
+
+    static inline bool isNull(const uint64_t* nullEntries, uint32_t pos) {
+        auto [entryPos, bitPosInEntry] = getNullEntryAndBitPos(pos);
+        return nullEntries[entryPos] & NULL_BITMASKS_WITH_SINGLE_ONE[bitPosInEntry];
+    }
+
+    static uint64_t getNumNullBits(std::span<uint64_t> data) {
+        return data.size() * NullMask::NUM_BITS_PER_NULL_ENTRY;
+    }
+
+    inline bool isNull(uint32_t pos) const {
+        KU_ASSERT(pos < getNumNullBits(data));
+        return isNull(data.data(), pos);
+    }
+
+    // const because updates to the data must set mayContainNulls if any value
+    // becomes non-null
+    // Modifying the underlying data should be done with setNull or copyFromNullData
+    inline const uint64_t* getData() const { return data.data(); }
+
+    static inline uint64_t getNumNullEntries(uint64_t numNullBits) {
+        return (numNullBits >> NUM_BITS_PER_NULL_ENTRY_LOG2) +
+               ((numNullBits - (numNullBits << NUM_BITS_PER_NULL_ENTRY_LOG2)) == 0 ? 0 : 1);
+    }
+
+    // Copies bitpacked null flags from one buffer to another, starting at an arbitrary bit
+    // offset and preserving adjacent bits.
+    //
+    // returns true if we have copied a nullBit with value 1 (indicates a null value) to
+    // dstNullEntries.
+    static bool copyNullMask(const uint64_t* srcNullEntries, uint64_t srcOffset,
+        uint64_t* dstNullEntries, uint64_t dstOffset, uint64_t numBitsToCopy, bool invert = false);
+
+    inline bool copyFrom(const NullMask& nullMask, uint64_t srcOffset, uint64_t dstOffset,
+        uint64_t numBitsToCopy, bool invert = false) {
+        if (nullMask.hasNoNullsGuarantee()) {
+            setNullFromRange(dstOffset, numBitsToCopy, invert);
+            return invert;
+        } else {
+            return copyFromNullBits(nullMask.getData(), srcOffset, dstOffset, numBitsToCopy,
+                invert);
+        }
+    }
+    bool copyFromNullBits(const uint64_t* srcNullEntries, uint64_t srcOffset, uint64_t dstOffset,
+        uint64_t numBitsToCopy, bool invert = false);
+
+    // Sets the given number of bits to null (if isNull is true) or non-null (if isNull is false),
+    // starting at the offset
+    static void setNullRange(uint64_t* nullEntries, uint64_t offset, uint64_t numBitsToSet,
+        bool isNull);
+
+    void setNullFromRange(uint64_t offset, uint64_t numBitsToSet, bool isNull);
+
+    void resize(uint64_t capacity);
+
+    void operator|=(const NullMask& other);
+
+    // Fast calculation of the minimum and maximum null values
+    // (essentially just three states, all null, all non-null and some null)
+    static std::pair<bool, bool> getMinMax(const uint64_t* nullEntries, uint64_t offset,
+        uint64_t numValues);
+
+private:
+    static inline std::pair<uint64_t, uint64_t> getNullEntryAndBitPos(uint64_t pos) {
+        auto nullEntryPos = pos >> NUM_BITS_PER_NULL_ENTRY_LOG2;
+        return std::make_pair(nullEntryPos,
+            pos - (nullEntryPos << NullMask::NUM_BITS_PER_NULL_ENTRY_LOG2));
+    }
+
+    static bool copyUnaligned(const uint64_t* srcNullEntries, uint64_t srcOffset,
+        uint64_t* dstNullEntries, uint64_t dstOffset, uint64_t numBitsToCopy, bool invert = false);
+
+private:
+    std::span<uint64_t> data;
+    std::unique_ptr<uint64_t[]> buffer;
+    bool mayContainNulls;
+};
 
 } // namespace common
 } // namespace kuzu
@@ -2465,38 +2212,48 @@ namespace common {
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 
 namespace kuzu {
+namespace main {
+class ClientContext;
+}
 namespace processor {
 class ParquetReader;
-};
+}
+namespace catalog {
+class NodeTableCatalogEntry;
+}
 namespace common {
 
 class Serializer;
 class Deserializer;
 struct FileInfo;
 
-using sel_t = uint16_t;
+using sel_t = uint64_t;
+constexpr sel_t INVALID_SEL = UINT64_MAX;
 using hash_t = uint64_t;
 using page_idx_t = uint32_t;
 using frame_idx_t = page_idx_t;
 using page_offset_t = uint32_t;
 constexpr page_idx_t INVALID_PAGE_IDX = UINT32_MAX;
+using file_idx_t = uint32_t;
+constexpr file_idx_t INVALID_FILE_IDX = UINT32_MAX;
 using page_group_idx_t = uint32_t;
 using frame_group_idx_t = page_group_idx_t;
+using column_id_t = uint32_t;
 using property_id_t = uint32_t;
-constexpr property_id_t INVALID_PROPERTY_ID = UINT32_MAX;
-using column_id_t = property_id_t;
-constexpr column_id_t INVALID_COLUMN_ID = INVALID_PROPERTY_ID;
-using vector_idx_t = uint32_t;
-constexpr vector_idx_t INVALID_VECTOR_IDX = UINT32_MAX;
+constexpr column_id_t INVALID_COLUMN_ID = UINT32_MAX;
+constexpr column_id_t ROW_IDX_COLUMN_ID = INVALID_COLUMN_ID - 1;
+using idx_t = uint32_t;
+constexpr idx_t INVALID_IDX = UINT32_MAX;
 using block_idx_t = uint64_t;
 constexpr block_idx_t INVALID_BLOCK_IDX = UINT64_MAX;
-using struct_field_idx_t = uint8_t;
+using struct_field_idx_t = uint16_t;
 using union_field_idx_t = struct_field_idx_t;
-constexpr struct_field_idx_t INVALID_STRUCT_FIELD_IDX = UINT8_MAX;
+constexpr struct_field_idx_t INVALID_STRUCT_FIELD_IDX = UINT16_MAX;
 using row_idx_t = uint64_t;
 constexpr row_idx_t INVALID_ROW_IDX = UINT64_MAX;
 constexpr uint32_t UNDEFINED_CAST_COST = UINT32_MAX;
@@ -2505,6 +2262,51 @@ constexpr node_group_idx_t INVALID_NODE_GROUP_IDX = UINT64_MAX;
 using partition_idx_t = uint64_t;
 constexpr partition_idx_t INVALID_PARTITION_IDX = UINT64_MAX;
 using length_t = uint64_t;
+constexpr length_t INVALID_LENGTH = UINT64_MAX;
+using list_size_t = uint32_t;
+using sequence_id_t = uint64_t;
+using oid_t = uint64_t;
+constexpr oid_t INVALID_OID = UINT64_MAX;
+
+using transaction_t = uint64_t;
+constexpr transaction_t INVALID_TRANSACTION = UINT64_MAX;
+using executor_id_t = uint64_t;
+using executor_info = std::unordered_map<executor_id_t, uint64_t>;
+
+// table id type alias
+using table_id_t = oid_t;
+using table_id_vector_t = std::vector<table_id_t>;
+using table_id_set_t = std::unordered_set<table_id_t>;
+template<typename T>
+using table_id_map_t = std::unordered_map<table_id_t, T>;
+constexpr table_id_t INVALID_TABLE_ID = INVALID_OID;
+// offset type alias
+using offset_t = uint64_t;
+constexpr offset_t INVALID_OFFSET = UINT64_MAX;
+// internal id type alias
+struct internalID_t;
+using nodeID_t = internalID_t;
+using relID_t = internalID_t;
+
+using cardinality_t = uint64_t;
+constexpr offset_t INVALID_LIMIT = UINT64_MAX;
+using offset_vec_t = std::vector<offset_t>;
+// System representation for internalID.
+struct KUZU_API internalID_t {
+    offset_t offset;
+    table_id_t tableID;
+
+    internalID_t();
+    internalID_t(offset_t offset, table_id_t tableID);
+
+    // comparison operators
+    bool operator==(const internalID_t& rhs) const;
+    bool operator!=(const internalID_t& rhs) const;
+    bool operator>(const internalID_t& rhs) const;
+    bool operator>=(const internalID_t& rhs) const;
+    bool operator<(const internalID_t& rhs) const;
+    bool operator<=(const internalID_t& rhs) const;
+};
 
 // System representation for a variable-sized overflow value.
 struct overflow_value_t {
@@ -2515,11 +2317,11 @@ struct overflow_value_t {
 };
 
 struct list_entry_t {
-    common::offset_t offset;
-    uint64_t size;
+    offset_t offset;
+    list_size_t size;
 
-    list_entry_t() : offset{INVALID_OFFSET}, size{UINT64_MAX} {}
-    list_entry_t(common::offset_t offset, uint64_t size) : offset{offset}, size{size} {}
+    constexpr list_entry_t() : offset{INVALID_OFFSET}, size{UINT32_MAX} {}
+    constexpr list_entry_t(offset_t offset, list_size_t size) : offset{offset}, size{size} {}
 };
 
 struct struct_entry_t {
@@ -2538,15 +2340,46 @@ struct int128_t;
 struct ku_string_t;
 
 template<typename T>
+concept SignedIntegerTypes =
+    std::is_same_v<T, int8_t> || std::is_same_v<T, int16_t> || std::is_same_v<T, int32_t> ||
+    std::is_same_v<T, int64_t> || std::is_same_v<T, int128_t>;
+
+template<typename T>
+concept IntegerTypes =
+    SignedIntegerTypes<T> || std::is_same_v<T, uint8_t> || std::is_same_v<T, uint16_t> ||
+    std::is_same_v<T, uint32_t> || std::is_same_v<T, uint64_t>;
+
+template<typename T>
+concept FloatingPointTypes = std::is_same_v<T, float> || std::is_same_v<T, double>;
+
+template<typename T>
+concept NumericTypes = IntegerTypes<T> || std::floating_point<T>;
+
+template<typename T>
+concept ComparableTypes = NumericTypes<T> || std::is_same_v<T, ku_string_t> ||
+                          std::is_same_v<T, interval_t> || std::is_same_v<T, bool>;
+
+template<typename T>
 concept HashablePrimitive = ((std::integral<T> && !std::is_same_v<T, bool>) ||
-                             std::floating_point<T> || std::is_same_v<T, common::int128_t>);
+                             std::floating_point<T> || std::is_same_v<T, int128_t>);
 template<typename T>
 concept IndexHashable = ((std::integral<T> && !std::is_same_v<T, bool>) || std::floating_point<T> ||
-                         std::is_same_v<T, common::int128_t> ||
-                         std::is_same_v<T, common::ku_string_t> ||
-                         std::is_same_v<T, std::string_view>);
+                         std::is_same_v<T, int128_t> || std::is_same_v<T, ku_string_t> ||
+                         std::is_same_v<T, std::string_view> || std::same_as<T, std::string>);
 
-enum class KUZU_API LogicalTypeID : uint8_t {
+template<typename T>
+concept HashableNonNestedTypes = (std::integral<T> || std::floating_point<T> ||
+                                  std::is_same_v<T, int128_t> || std::is_same_v<T, internalID_t> ||
+                                  std::is_same_v<T, interval_t> || std::is_same_v<T, ku_string_t>);
+
+template<typename T>
+concept HashableNestedTypes =
+    (std::is_same_v<T, list_entry_t> || std::is_same_v<T, struct_entry_t>);
+
+template<typename T>
+concept HashableTypes = (HashableNestedTypes<T> || HashableNonNestedTypes<T>);
+
+enum class LogicalTypeID : uint8_t {
     ANY = 0,
     NODE = 10,
     REL = 11,
@@ -2574,21 +2407,21 @@ enum class KUZU_API LogicalTypeID : uint8_t {
     TIMESTAMP_NS = 38,
     TIMESTAMP_TZ = 39,
     INTERVAL = 40,
-    FIXED_LIST = 41,
-
+    DECIMAL = 41,
     INTERNAL_ID = 42,
 
     STRING = 50,
     BLOB = 51,
 
-    VAR_LIST = 52,
-    STRUCT = 53,
-    MAP = 54,
-    UNION = 55,
-    RDF_VARIANT = 56,
-    POINTER = 57,
+    LIST = 52,
+    ARRAY = 53,
+    STRUCT = 54,
+    MAP = 55,
+    UNION = 56,
+    POINTER = 58,
 
-    UUID = 58
+    UUID = 59,
+
 };
 
 enum class PhysicalTypeID : uint8_t {
@@ -2608,76 +2441,270 @@ enum class PhysicalTypeID : uint8_t {
     FLOAT = 12,
     INTERVAL = 13,
     INTERNAL_ID = 14,
+    ALP_EXCEPTION_FLOAT = 15,
+    ALP_EXCEPTION_DOUBLE = 16,
 
     // Variable size types.
     STRING = 20,
-    FIXED_LIST = 21,
-    VAR_LIST = 22,
-    STRUCT = 23,
-    POINTER = 24,
+    LIST = 22,
+    ARRAY = 23,
+    STRUCT = 24,
+    POINTER = 25,
 };
 
-class LogicalType;
+class ExtraTypeInfo;
+class StructField;
+class StructTypeInfo;
 
-class ExtraTypeInfo {
+enum class TypeCategory : uint8_t { INTERNAL = 0, UDT = 1 };
+
+class LogicalType {
+    friend struct LogicalTypeUtils;
+    friend struct DecimalType;
+    friend struct StructType;
+    friend struct ListType;
+    friend struct ArrayType;
+
+    KUZU_API LogicalType(const LogicalType& other);
+
+public:
+    KUZU_API LogicalType() : typeID{LogicalTypeID::ANY}, extraTypeInfo{nullptr} {
+        physicalType = getPhysicalType(this->typeID);
+    };
+    explicit KUZU_API LogicalType(LogicalTypeID typeID, TypeCategory info = TypeCategory::INTERNAL);
+    EXPLICIT_COPY_DEFAULT_MOVE(LogicalType);
+
+    KUZU_API bool operator==(const LogicalType& other) const;
+    KUZU_API bool operator!=(const LogicalType& other) const;
+
+    KUZU_API std::string toString() const;
+    static bool isBuiltInType(const std::string& str);
+    static LogicalType convertFromString(const std::string& str, main::ClientContext* context);
+
+    KUZU_API LogicalTypeID getLogicalTypeID() const { return typeID; }
+    bool containsAny() const;
+    bool isInternalType() const { return category == TypeCategory::INTERNAL; }
+
+    KUZU_API PhysicalTypeID getPhysicalType() const { return physicalType; }
+    KUZU_API static PhysicalTypeID getPhysicalType(LogicalTypeID logicalType,
+        const std::unique_ptr<ExtraTypeInfo>& extraTypeInfo = nullptr);
+
+    void setExtraTypeInfo(std::unique_ptr<ExtraTypeInfo> typeInfo) {
+        extraTypeInfo = std::move(typeInfo);
+    }
+
+    const ExtraTypeInfo* getExtraTypeInfo() const { return extraTypeInfo.get(); }
+
+    void serialize(Serializer& serializer) const;
+
+    static LogicalType deserialize(Deserializer& deserializer);
+
+    KUZU_API static std::vector<LogicalType> copy(const std::vector<LogicalType>& types);
+    KUZU_API static std::vector<LogicalType> copy(const std::vector<LogicalType*>& types);
+
+    static LogicalType ANY() { return LogicalType(LogicalTypeID::ANY); }
+
+    // NOTE: avoid using this if possible, this is a temporary hack for passing internal types
+    // TODO(Royi) remove this when float compression no longer relies on this or ColumnChunkData
+    // takes physical types instead of logical types
+    static LogicalType ANY(PhysicalTypeID physicalType) {
+        auto ret = LogicalType(LogicalTypeID::ANY);
+        ret.physicalType = physicalType;
+        return ret;
+    }
+
+    static LogicalType BOOL() { return LogicalType(LogicalTypeID::BOOL); }
+    static LogicalType HASH() { return LogicalType(LogicalTypeID::UINT64); }
+    static LogicalType INT64() { return LogicalType(LogicalTypeID::INT64); }
+    static LogicalType INT32() { return LogicalType(LogicalTypeID::INT32); }
+    static LogicalType INT16() { return LogicalType(LogicalTypeID::INT16); }
+    static LogicalType INT8() { return LogicalType(LogicalTypeID::INT8); }
+    static LogicalType UINT64() { return LogicalType(LogicalTypeID::UINT64); }
+    static LogicalType UINT32() { return LogicalType(LogicalTypeID::UINT32); }
+    static LogicalType UINT16() { return LogicalType(LogicalTypeID::UINT16); }
+    static LogicalType UINT8() { return LogicalType(LogicalTypeID::UINT8); }
+    static LogicalType INT128() { return LogicalType(LogicalTypeID::INT128); }
+    static LogicalType DOUBLE() { return LogicalType(LogicalTypeID::DOUBLE); }
+    static LogicalType FLOAT() { return LogicalType(LogicalTypeID::FLOAT); }
+    static LogicalType DATE() { return LogicalType(LogicalTypeID::DATE); }
+    static LogicalType TIMESTAMP_NS() { return LogicalType(LogicalTypeID::TIMESTAMP_NS); }
+    static LogicalType TIMESTAMP_MS() { return LogicalType(LogicalTypeID::TIMESTAMP_MS); }
+    static LogicalType TIMESTAMP_SEC() { return LogicalType(LogicalTypeID::TIMESTAMP_SEC); }
+    static LogicalType TIMESTAMP_TZ() { return LogicalType(LogicalTypeID::TIMESTAMP_TZ); }
+    static LogicalType TIMESTAMP() { return LogicalType(LogicalTypeID::TIMESTAMP); }
+    static LogicalType INTERVAL() { return LogicalType(LogicalTypeID::INTERVAL); }
+    static KUZU_API LogicalType DECIMAL(uint32_t precision, uint32_t scale);
+    static LogicalType INTERNAL_ID() { return LogicalType(LogicalTypeID::INTERNAL_ID); }
+    static LogicalType SERIAL() { return LogicalType(LogicalTypeID::SERIAL); }
+    static LogicalType STRING() { return LogicalType(LogicalTypeID::STRING); }
+    static LogicalType BLOB() { return LogicalType(LogicalTypeID::BLOB); }
+    static LogicalType UUID() { return LogicalType(LogicalTypeID::UUID); }
+    static LogicalType POINTER() { return LogicalType(LogicalTypeID::POINTER); }
+    static KUZU_API LogicalType STRUCT(std::vector<StructField>&& fields);
+
+    static KUZU_API LogicalType RECURSIVE_REL(std::vector<StructField>&& fields);
+
+    static KUZU_API LogicalType NODE(std::vector<StructField>&& fields);
+
+    static KUZU_API LogicalType REL(std::vector<StructField>&& fields);
+
+    static KUZU_API LogicalType UNION(std::vector<StructField>&& fields);
+
+    static KUZU_API LogicalType LIST(LogicalType childType);
+    template<class T>
+    static inline LogicalType LIST(T&& childType) {
+        return LogicalType::LIST(LogicalType(std::forward<T>(childType)));
+    }
+
+    static KUZU_API LogicalType MAP(LogicalType keyType, LogicalType valueType);
+    template<class T>
+    static LogicalType MAP(T&& keyType, T&& valueType) {
+        return LogicalType::MAP(LogicalType(std::forward<T>(keyType)),
+            LogicalType(std::forward<T>(valueType)));
+    }
+
+    static KUZU_API LogicalType ARRAY(LogicalType childType, uint64_t numElements);
+    template<class T>
+    static LogicalType ARRAY(T&& childType, uint64_t numElements) {
+        return LogicalType::ARRAY(LogicalType(std::forward<T>(childType)), numElements);
+    }
+
+private:
+    friend struct CAPIHelper;
+    friend struct JavaAPIHelper;
+    friend class kuzu::processor::ParquetReader;
+    explicit LogicalType(LogicalTypeID typeID, std::unique_ptr<ExtraTypeInfo> extraTypeInfo);
+
+private:
+    LogicalTypeID typeID;
+    PhysicalTypeID physicalType;
+    std::unique_ptr<ExtraTypeInfo> extraTypeInfo;
+    TypeCategory category = TypeCategory::INTERNAL;
+};
+
+class KUZU_API ExtraTypeInfo {
 public:
     virtual ~ExtraTypeInfo() = default;
 
-    inline void serialize(Serializer& serializer) const { serializeInternal(serializer); }
+    void serialize(Serializer& serializer) const { serializeInternal(serializer); }
+
+    virtual bool containsAny() const = 0;
+
+    virtual bool operator==(const ExtraTypeInfo& other) const = 0;
 
     virtual std::unique_ptr<ExtraTypeInfo> copy() const = 0;
+
+    template<class TARGET>
+    const TARGET* constPtrCast() const {
+        return common::ku_dynamic_cast<const TARGET*>(this);
+    }
 
 protected:
     virtual void serializeInternal(Serializer& serializer) const = 0;
 };
 
-class VarListTypeInfo : public ExtraTypeInfo {
+class KUZU_API UDTTypeInfo : public ExtraTypeInfo {
 public:
-    VarListTypeInfo() = default;
-    explicit VarListTypeInfo(std::unique_ptr<LogicalType> childType)
-        : childType{std::move(childType)} {}
-    inline LogicalType* getChildType() const { return childType.get(); }
-    bool operator==(const VarListTypeInfo& other) const;
+    explicit UDTTypeInfo(std::string typeName) : typeName{std::move(typeName)} {}
+
+    std::string getTypeName() const { return typeName; }
+
+    bool containsAny() const override { return false; }
+
+    bool operator==(const ExtraTypeInfo& other) const override;
+
     std::unique_ptr<ExtraTypeInfo> copy() const override;
 
     static std::unique_ptr<ExtraTypeInfo> deserialize(Deserializer& deserializer);
 
-protected:
+private:
     void serializeInternal(Serializer& serializer) const override;
 
-protected:
-    std::unique_ptr<LogicalType> childType;
+private:
+    std::string typeName;
 };
 
-class FixedListTypeInfo : public VarListTypeInfo {
+class DecimalTypeInfo final : public ExtraTypeInfo {
 public:
-    FixedListTypeInfo() = default;
-    explicit FixedListTypeInfo(
-        std::unique_ptr<LogicalType> childType, uint64_t fixedNumElementsInList)
-        : VarListTypeInfo{std::move(childType)}, fixedNumElementsInList{fixedNumElementsInList} {}
-    inline uint64_t getNumValuesInList() const { return fixedNumElementsInList; }
-    bool operator==(const FixedListTypeInfo& other) const;
+    explicit DecimalTypeInfo(uint32_t precision = 18, uint32_t scale = 3)
+        : precision(precision), scale(scale) {}
+
+    uint32_t getPrecision() const { return precision; }
+    uint32_t getScale() const { return scale; }
+
+    bool containsAny() const override { return false; }
+
+    bool operator==(const ExtraTypeInfo& other) const override;
+
+    std::unique_ptr<ExtraTypeInfo> copy() const override;
+
     static std::unique_ptr<ExtraTypeInfo> deserialize(Deserializer& deserializer);
+
+protected:
+    void serializeInternal(Serializer& serializer) const override;
+
+    uint32_t precision, scale;
+};
+
+class KUZU_API ListTypeInfo : public ExtraTypeInfo {
+public:
+    ListTypeInfo() = default;
+    explicit ListTypeInfo(LogicalType childType) : childType{std::move(childType)} {}
+
+    const LogicalType& getChildType() const { return childType; }
+
+    bool containsAny() const override;
+
+    bool operator==(const ExtraTypeInfo& other) const override;
+
+    std::unique_ptr<ExtraTypeInfo> copy() const override;
+
+    static std::unique_ptr<ExtraTypeInfo> deserialize(Deserializer& deserializer);
+
+protected:
+    void serializeInternal(Serializer& serializer) const override;
+
+protected:
+    LogicalType childType;
+};
+
+class KUZU_API ArrayTypeInfo final : public ListTypeInfo {
+public:
+    ArrayTypeInfo() : numElements{0} {};
+    explicit ArrayTypeInfo(LogicalType childType, uint64_t numElements)
+        : ListTypeInfo{std::move(childType)}, numElements{numElements} {}
+
+    uint64_t getNumElements() const { return numElements; }
+
+    bool operator==(const ExtraTypeInfo& other) const override;
+
+    static std::unique_ptr<ExtraTypeInfo> deserialize(Deserializer& deserializer);
+
     std::unique_ptr<ExtraTypeInfo> copy() const override;
 
 private:
     void serializeInternal(Serializer& serializer) const override;
 
 private:
-    uint64_t fixedNumElementsInList;
+    uint64_t numElements;
 };
 
 class StructField {
 public:
-    StructField() : type{std::make_unique<LogicalType>()} {}
-    StructField(std::string name, std::unique_ptr<LogicalType> type)
+    StructField() : type{LogicalType()} {}
+    StructField(std::string name, LogicalType type)
         : name{std::move(name)}, type{std::move(type)} {};
 
-    inline bool operator!=(const StructField& other) const { return !(*this == other); }
-    inline std::string getName() const { return name; }
-    inline LogicalType* getType() const { return type.get(); }
+    DELETE_COPY_DEFAULT_MOVE(StructField);
+
+    std::string getName() const { return name; }
+
+    const LogicalType& getType() const { return type; }
+
+    bool containsAny() const;
 
     bool operator==(const StructField& other) const;
+    bool operator!=(const StructField& other) const { return !(*this == other); }
 
     void serialize(Serializer& serializer) const;
 
@@ -2687,25 +2714,30 @@ public:
 
 private:
     std::string name;
-    std::unique_ptr<LogicalType> type;
+    LogicalType type;
 };
 
-class StructTypeInfo : public ExtraTypeInfo {
+class StructTypeInfo final : public ExtraTypeInfo {
 public:
     StructTypeInfo() = default;
     explicit StructTypeInfo(std::vector<StructField>&& fields);
     StructTypeInfo(const std::vector<std::string>& fieldNames,
-        const std::vector<std::unique_ptr<LogicalType>>& fieldTypes);
+        const std::vector<LogicalType>& fieldTypes);
 
     bool hasField(const std::string& fieldName) const;
     struct_field_idx_t getStructFieldIdx(std::string fieldName) const;
-    const StructField* getStructField(struct_field_idx_t idx) const;
-    const StructField* getStructField(const std::string& fieldName) const;
-    LogicalType* getChildType(struct_field_idx_t idx) const;
-    std::vector<LogicalType*> getChildrenTypes() const;
+    const StructField& getStructField(struct_field_idx_t idx) const;
+    const StructField& getStructField(const std::string& fieldName) const;
+    const std::vector<StructField>& getStructFields() const;
+
+    const LogicalType& getChildType(struct_field_idx_t idx) const;
+    std::vector<const LogicalType*> getChildrenTypes() const;
+    // can't be a vector of refs since that can't be for-each looped through
     std::vector<std::string> getChildrenNames() const;
-    std::vector<const StructField*> getStructFields() const;
-    bool operator==(const kuzu::common::StructTypeInfo& other) const;
+
+    bool containsAny() const override;
+
+    bool operator==(const ExtraTypeInfo& other) const override;
 
     static std::unique_ptr<ExtraTypeInfo> deserialize(Deserializer& deserializer);
     std::unique_ptr<ExtraTypeInfo> copy() const override;
@@ -2718,324 +2750,114 @@ private:
     std::unordered_map<std::string, struct_field_idx_t> fieldNameToIdxMap;
 };
 
-class LogicalType {
-    friend class LogicalTypeUtils;
-    friend struct StructType;
-    friend struct VarListType;
-    friend struct FixedListType;
+using logical_type_vec_t = std::vector<LogicalType>;
 
-public:
-    KUZU_API LogicalType() : typeID{LogicalTypeID::ANY}, extraTypeInfo{nullptr} {
-        physicalType = getPhysicalType(this->typeID);
-    };
-    explicit KUZU_API LogicalType(LogicalTypeID typeID);
-    KUZU_API LogicalType(const LogicalType& other);
-    KUZU_API LogicalType(LogicalType&& other) = default;
-
-    KUZU_API LogicalType& operator=(const LogicalType& other);
-
-    KUZU_API bool operator==(const LogicalType& other) const;
-
-    KUZU_API bool operator!=(const LogicalType& other) const;
-
-    KUZU_API LogicalType& operator=(LogicalType&& other) = default;
-
-    KUZU_API std::string toString() const;
-
-    KUZU_API inline LogicalTypeID getLogicalTypeID() const { return typeID; }
-
-    inline PhysicalTypeID getPhysicalType() const { return physicalType; }
-    static PhysicalTypeID getPhysicalType(LogicalTypeID logicalType);
-
-    inline bool hasExtraTypeInfo() const { return extraTypeInfo != nullptr; }
-    inline void setExtraTypeInfo(std::unique_ptr<ExtraTypeInfo> typeInfo) {
-        extraTypeInfo = std::move(typeInfo);
-    }
-
-    void serialize(Serializer& serializer) const;
-
-    static std::unique_ptr<LogicalType> deserialize(Deserializer& deserializer);
-
-    std::unique_ptr<LogicalType> copy() const;
-
-    static std::vector<std::unique_ptr<LogicalType>> copy(
-        const std::vector<std::unique_ptr<LogicalType>>& types);
-
-    static std::unique_ptr<LogicalType> ANY() {
-        return std::make_unique<LogicalType>(LogicalTypeID::ANY);
-    }
-    static std::unique_ptr<LogicalType> BOOL() {
-        return std::make_unique<LogicalType>(LogicalTypeID::BOOL);
-    }
-    static std::unique_ptr<LogicalType> INT64() {
-        return std::make_unique<LogicalType>(LogicalTypeID::INT64);
-    }
-    static std::unique_ptr<LogicalType> INT32() {
-        return std::make_unique<LogicalType>(LogicalTypeID::INT32);
-    }
-    static std::unique_ptr<LogicalType> INT16() {
-        return std::make_unique<LogicalType>(LogicalTypeID::INT16);
-    }
-    static std::unique_ptr<LogicalType> INT8() {
-        return std::make_unique<LogicalType>(LogicalTypeID::INT8);
-    }
-    static std::unique_ptr<LogicalType> UINT64() {
-        return std::make_unique<LogicalType>(LogicalTypeID::UINT64);
-    }
-    static std::unique_ptr<LogicalType> UINT32() {
-        return std::make_unique<LogicalType>(LogicalTypeID::UINT32);
-    }
-    static std::unique_ptr<LogicalType> UINT16() {
-        return std::make_unique<LogicalType>(LogicalTypeID::UINT16);
-    }
-    static std::unique_ptr<LogicalType> UINT8() {
-        return std::make_unique<LogicalType>(LogicalTypeID::UINT8);
-    }
-    static std::unique_ptr<LogicalType> INT128() {
-        return std::make_unique<LogicalType>(LogicalTypeID::INT128);
-    }
-    static std::unique_ptr<LogicalType> DOUBLE() {
-        return std::make_unique<LogicalType>(LogicalTypeID::DOUBLE);
-    }
-    static std::unique_ptr<LogicalType> FLOAT() {
-        return std::make_unique<LogicalType>(LogicalTypeID::FLOAT);
-    }
-    static std::unique_ptr<LogicalType> DATE() {
-        return std::make_unique<LogicalType>(LogicalTypeID::DATE);
-    }
-    static std::unique_ptr<LogicalType> TIMESTAMP_NS() {
-        return std::make_unique<LogicalType>(LogicalTypeID::TIMESTAMP_NS);
-    }
-    static std::unique_ptr<LogicalType> TIMESTAMP_MS() {
-        return std::make_unique<LogicalType>(LogicalTypeID::TIMESTAMP_MS);
-    }
-    static std::unique_ptr<LogicalType> TIMESTAMP_SEC() {
-        return std::make_unique<LogicalType>(LogicalTypeID::TIMESTAMP_SEC);
-    }
-    static std::unique_ptr<LogicalType> TIMESTAMP_TZ() {
-        return std::make_unique<LogicalType>(LogicalTypeID::TIMESTAMP_TZ);
-    }
-    static std::unique_ptr<LogicalType> TIMESTAMP() {
-        return std::make_unique<LogicalType>(LogicalTypeID::TIMESTAMP);
-    }
-    static std::unique_ptr<LogicalType> INTERVAL() {
-        return std::make_unique<LogicalType>(LogicalTypeID::INTERVAL);
-    }
-    static std::unique_ptr<LogicalType> INTERNAL_ID() {
-        return std::make_unique<LogicalType>(LogicalTypeID::INTERNAL_ID);
-    }
-    static std::unique_ptr<LogicalType> SERIAL() {
-        return std::make_unique<LogicalType>(LogicalTypeID::SERIAL);
-    }
-    static std::unique_ptr<LogicalType> STRING() {
-        return std::make_unique<LogicalType>(LogicalTypeID::STRING);
-    }
-    static std::unique_ptr<LogicalType> BLOB() {
-        return std::make_unique<LogicalType>(LogicalTypeID::BLOB);
-    }
-    static std::unique_ptr<LogicalType> UUID() {
-        return std::make_unique<LogicalType>(LogicalTypeID::UUID);
-    }
-    static std::unique_ptr<LogicalType> POINTER() {
-        return std::make_unique<LogicalType>(LogicalTypeID::POINTER);
-    }
-    static KUZU_API std::unique_ptr<LogicalType> STRUCT(std::vector<StructField>&& fields);
-
-    static KUZU_API std::unique_ptr<LogicalType> RECURSIVE_REL(
-        std::unique_ptr<StructTypeInfo> typeInfo);
-
-    static KUZU_API std::unique_ptr<LogicalType> NODE(std::unique_ptr<StructTypeInfo> typeInfo);
-
-    static KUZU_API std::unique_ptr<LogicalType> REL(std::unique_ptr<StructTypeInfo> typeInfo);
-
-    static KUZU_API std::unique_ptr<LogicalType> RDF_VARIANT();
-
-    static KUZU_API std::unique_ptr<LogicalType> UNION(std::vector<StructField>&& fields);
-
-    static KUZU_API std::unique_ptr<LogicalType> VAR_LIST(std::unique_ptr<LogicalType> childType);
-    template<class T>
-    static inline std::unique_ptr<LogicalType> VAR_LIST(T&& childType) {
-        return LogicalType::VAR_LIST(std::make_unique<LogicalType>(std::forward<T>(childType)));
-    }
-
-    static KUZU_API std::unique_ptr<LogicalType> MAP(
-        std::unique_ptr<LogicalType> keyType, std::unique_ptr<LogicalType> valueType);
-    template<class T>
-    static inline std::unique_ptr<LogicalType> MAP(T&& keyType, T&& valueType) {
-        return LogicalType::MAP(std::make_unique<LogicalType>(std::forward<T>(keyType)),
-            std::make_unique<LogicalType>(std::forward<T>(valueType)));
-    }
-
-    static KUZU_API std::unique_ptr<LogicalType> FIXED_LIST(
-        std::unique_ptr<LogicalType> childType, uint64_t fixedNumElementsInList);
-
-private:
-    friend struct CAPIHelper;
-    friend struct JavaAPIHelper;
-    friend class kuzu::processor::ParquetReader;
-    explicit LogicalType(LogicalTypeID typeID, std::unique_ptr<ExtraTypeInfo> extraTypeInfo);
-
-private:
-    LogicalTypeID typeID;
-    PhysicalTypeID physicalType;
-    std::unique_ptr<ExtraTypeInfo> extraTypeInfo;
+struct KUZU_API DecimalType {
+    static uint32_t getPrecision(const LogicalType& type);
+    static uint32_t getScale(const LogicalType& type);
+    static std::string insertDecimalPoint(const std::string& value, uint32_t posFromEnd);
 };
 
-using logical_types_t = std::vector<std::unique_ptr<LogicalType>>;
-
-struct VarListType {
-    static inline LogicalType* getChildType(const LogicalType* type) {
-        KU_ASSERT(type->getPhysicalType() == PhysicalTypeID::VAR_LIST);
-        auto varListTypeInfo = reinterpret_cast<VarListTypeInfo*>(type->extraTypeInfo.get());
-        return varListTypeInfo->getChildType();
-    }
+struct KUZU_API ListType {
+    static const LogicalType& getChildType(const LogicalType& type);
 };
 
-struct FixedListType {
-    static inline LogicalType* getChildType(const LogicalType* type) {
-        KU_ASSERT(type->getLogicalTypeID() == LogicalTypeID::FIXED_LIST);
-        auto fixedListTypeInfo = reinterpret_cast<FixedListTypeInfo*>(type->extraTypeInfo.get());
-        return fixedListTypeInfo->getChildType();
-    }
-
-    static inline uint64_t getNumValuesInList(const LogicalType* type) {
-        KU_ASSERT(type->getLogicalTypeID() == LogicalTypeID::FIXED_LIST);
-        auto fixedListTypeInfo = reinterpret_cast<FixedListTypeInfo*>(type->extraTypeInfo.get());
-        return fixedListTypeInfo->getNumValuesInList();
-    }
+struct KUZU_API ArrayType {
+    static const LogicalType& getChildType(const LogicalType& type);
+    static uint64_t getNumElements(const LogicalType& type);
 };
 
-struct NodeType {
-    static inline void setExtraTypeInfo(
-        LogicalType& type, std::unique_ptr<ExtraTypeInfo> extraTypeInfo) {
-        KU_ASSERT(type.getLogicalTypeID() == LogicalTypeID::NODE);
-        type.setExtraTypeInfo(std::move(extraTypeInfo));
-    }
+struct KUZU_API StructType {
+    static std::vector<const LogicalType*> getFieldTypes(const LogicalType& type);
+    // since the field types isn't stored as a vector of LogicalTypes, we can't return vector<>&
+
+    static const LogicalType& getFieldType(const LogicalType& type, struct_field_idx_t idx);
+
+    static const LogicalType& getFieldType(const LogicalType& type, const std::string& key);
+
+    static std::vector<std::string> getFieldNames(const LogicalType& type);
+
+    static uint64_t getNumFields(const LogicalType& type);
+
+    static const std::vector<StructField>& getFields(const LogicalType& type);
+
+    static bool hasField(const LogicalType& type, const std::string& key);
+
+    static const StructField& getField(const LogicalType& type, struct_field_idx_t idx);
+
+    static const StructField& getField(const LogicalType& type, const std::string& key);
+
+    static struct_field_idx_t getFieldIdx(const LogicalType& type, const std::string& key);
 };
 
-struct RelType {
-    static inline void setExtraTypeInfo(
-        LogicalType& type, std::unique_ptr<ExtraTypeInfo> extraTypeInfo) {
-        KU_ASSERT(type.getLogicalTypeID() == LogicalTypeID::REL);
-        type.setExtraTypeInfo(std::move(extraTypeInfo));
-    }
+struct KUZU_API MapType {
+    static const LogicalType& getKeyType(const LogicalType& type);
+
+    static const LogicalType& getValueType(const LogicalType& type);
 };
 
-struct StructType {
-    static inline std::vector<LogicalType*> getFieldTypes(const LogicalType* type) {
-        KU_ASSERT(type->getPhysicalType() == PhysicalTypeID::STRUCT);
-        auto structTypeInfo = reinterpret_cast<StructTypeInfo*>(type->extraTypeInfo.get());
-        return structTypeInfo->getChildrenTypes();
-    }
-
-    static inline std::vector<std::string> getFieldNames(const LogicalType* type) {
-        KU_ASSERT(type->getPhysicalType() == PhysicalTypeID::STRUCT);
-        auto structTypeInfo = reinterpret_cast<StructTypeInfo*>(type->extraTypeInfo.get());
-        return structTypeInfo->getChildrenNames();
-    }
-
-    static inline uint64_t getNumFields(const LogicalType* type) {
-        KU_ASSERT(type->getPhysicalType() == PhysicalTypeID::STRUCT);
-        return getFieldTypes(type).size();
-    }
-
-    static inline std::vector<const StructField*> getFields(const LogicalType* type) {
-        KU_ASSERT(type->getPhysicalType() == PhysicalTypeID::STRUCT);
-        auto structTypeInfo = reinterpret_cast<StructTypeInfo*>(type->extraTypeInfo.get());
-        return structTypeInfo->getStructFields();
-    }
-
-    static inline bool hasField(const LogicalType* type, const std::string& key) {
-        KU_ASSERT(type->getPhysicalType() == PhysicalTypeID::STRUCT);
-        auto structTypeInfo = reinterpret_cast<StructTypeInfo*>(type->extraTypeInfo.get());
-        return structTypeInfo->hasField(key);
-    }
-
-    static inline const StructField* getField(const LogicalType* type, struct_field_idx_t idx) {
-        KU_ASSERT(type->getPhysicalType() == PhysicalTypeID::STRUCT);
-        auto structTypeInfo = reinterpret_cast<StructTypeInfo*>(type->extraTypeInfo.get());
-        return structTypeInfo->getStructField(idx);
-    }
-
-    static inline const StructField* getField(const LogicalType* type, const std::string& key) {
-        KU_ASSERT(type->getPhysicalType() == PhysicalTypeID::STRUCT);
-        auto structTypeInfo = reinterpret_cast<StructTypeInfo*>(type->extraTypeInfo.get());
-        return structTypeInfo->getStructField(key);
-    }
-
-    static inline struct_field_idx_t getFieldIdx(const LogicalType* type, const std::string& key) {
-        KU_ASSERT(type->getPhysicalType() == PhysicalTypeID::STRUCT);
-        auto structTypeInfo = reinterpret_cast<StructTypeInfo*>(type->extraTypeInfo.get());
-        return structTypeInfo->getStructFieldIdx(key);
-    }
-};
-
-struct MapType {
-    static inline LogicalType* getKeyType(const LogicalType* type) {
-        KU_ASSERT(type->getLogicalTypeID() == LogicalTypeID::MAP);
-        return StructType::getFieldTypes(VarListType::getChildType(type))[0];
-    }
-
-    static inline LogicalType* getValueType(const LogicalType* type) {
-        KU_ASSERT(type->getLogicalTypeID() == LogicalTypeID::MAP);
-        return StructType::getFieldTypes(VarListType::getChildType(type))[1];
-    }
-};
-
-struct UnionType {
+struct KUZU_API UnionType {
     static constexpr union_field_idx_t TAG_FIELD_IDX = 0;
 
-    static constexpr LogicalTypeID TAG_FIELD_TYPE = LogicalTypeID::INT8;
+    static constexpr auto TAG_FIELD_TYPE = LogicalTypeID::UINT16;
 
     static constexpr char TAG_FIELD_NAME[] = "tag";
 
-    static inline union_field_idx_t getInternalFieldIdx(union_field_idx_t idx) { return idx + 1; }
+    static union_field_idx_t getInternalFieldIdx(union_field_idx_t idx);
 
-    static inline std::string getFieldName(const LogicalType* type, union_field_idx_t idx) {
-        KU_ASSERT(type->getLogicalTypeID() == LogicalTypeID::UNION);
-        return StructType::getFieldNames(type)[getInternalFieldIdx(idx)];
-    }
+    static std::string getFieldName(const LogicalType& type, union_field_idx_t idx);
 
-    static inline LogicalType* getFieldType(const LogicalType* type, union_field_idx_t idx) {
-        KU_ASSERT(type->getLogicalTypeID() == LogicalTypeID::UNION);
-        return StructType::getFieldTypes(type)[getInternalFieldIdx(idx)];
-    }
+    static const LogicalType& getFieldType(const LogicalType& type, union_field_idx_t idx);
 
-    static inline uint64_t getNumFields(const LogicalType* type) {
-        KU_ASSERT(type->getLogicalTypeID() == LogicalTypeID::UNION);
-        return StructType::getNumFields(type) - 1;
-    }
+    static uint64_t getNumFields(const LogicalType& type);
 };
 
 struct PhysicalTypeUtils {
-    static std::string physicalTypeToString(PhysicalTypeID physicalType);
+    static std::string toString(PhysicalTypeID physicalType);
     static uint32_t getFixedTypeSize(PhysicalTypeID physicalType);
 };
 
-class LogicalTypeUtils {
-public:
-    KUZU_API static std::string toString(LogicalTypeID dataTypeID);
+struct KUZU_API LogicalTypeUtils {
+    static std::string toString(LogicalTypeID dataTypeID);
     static std::string toString(const std::vector<LogicalType>& dataTypes);
-    KUZU_API static std::string toString(const std::vector<LogicalTypeID>& dataTypeIDs);
-    KUZU_API static LogicalType dataTypeFromString(const std::string& dataTypeString);
+    static std::string toString(const std::vector<LogicalTypeID>& dataTypeIDs);
     static uint32_t getRowLayoutSize(const LogicalType& logicalType);
+    static bool isDate(const LogicalType& dataType);
+    static bool isDate(const LogicalTypeID& dataType);
+    static bool isTimestamp(const LogicalType& dataType);
+    static bool isTimestamp(const LogicalTypeID& dataType);
+    static bool isUnsigned(const LogicalType& dataType);
+    static bool isUnsigned(const LogicalTypeID& dataType);
+    static bool isIntegral(const LogicalType& dataType);
+    static bool isIntegral(const LogicalTypeID& dataType);
     static bool isNumerical(const LogicalType& dataType);
+    static bool isNumerical(const LogicalTypeID& dataType);
+    static bool isFloatingPoint(const LogicalTypeID& dataType);
     static bool isNested(const LogicalType& dataType);
     static bool isNested(LogicalTypeID logicalTypeID);
     static std::vector<LogicalTypeID> getAllValidComparableLogicalTypes();
     static std::vector<LogicalTypeID> getNumericalLogicalTypeIDs();
-    static std::vector<LogicalTypeID> getIntegerLogicalTypeIDs();
-    static std::vector<LogicalTypeID> getAllValidLogicTypes();
+    static std::vector<LogicalTypeID> getIntegerTypeIDs();
+    static std::vector<LogicalTypeID> getFloatingPointTypeIDs();
+    static std::vector<LogicalTypeID> getAllValidLogicTypeIDs();
+    static std::vector<LogicalType> getAllValidLogicTypes();
+    static bool tryGetMaxLogicalType(const LogicalType& left, const LogicalType& right,
+        LogicalType& result);
+    static bool tryGetMaxLogicalType(const std::vector<LogicalType>& types, LogicalType& result);
+
+    // Differs from tryGetMaxLogicalType because it treats string as a maximal type, instead of a
+    // minimal type. as such, it will always succeed.
+    // Also combines structs by the union of their fields. As such, currently, it is not guaranteed
+    // for casting to work from input types to resulting types. Ideally this changes
+    static LogicalType combineTypes(const LogicalType& left, const LogicalType& right);
+    static LogicalType combineTypes(const std::vector<LogicalType>& types);
+
+    // makes a copy of the type with any occurences of ANY replaced with replacement
+    static LogicalType purgeAny(const LogicalType& type, const LogicalType& replacement);
 
 private:
-    static LogicalTypeID dataTypeIDFromString(const std::string& trimmedStr);
-    static std::vector<std::string> parseStructFields(const std::string& structTypeStr);
-    static std::unique_ptr<LogicalType> parseVarListType(const std::string& trimmedStr);
-    static std::unique_ptr<LogicalType> parseFixedListType(const std::string& trimmedStr);
-    static std::vector<StructField> parseStructTypeInfo(const std::string& structTypeStr);
-    static std::unique_ptr<LogicalType> parseStructType(const std::string& trimmedStr);
-    static std::unique_ptr<LogicalType> parseMapType(const std::string& trimmedStr);
-    static std::unique_ptr<LogicalType> parseUnionType(const std::string& trimmedStr);
+    static bool tryGetMaxLogicalTypeID(const LogicalTypeID& left, const LogicalTypeID& right,
+        LogicalTypeID& result);
 };
 
 enum class FileVersionType : uint8_t { ORIGINAL = 0, WAL_VERSION = 1 };
@@ -3043,69 +2865,56 @@ enum class FileVersionType : uint8_t { ORIGINAL = 0, WAL_VERSION = 1 };
 } // namespace common
 } // namespace kuzu
 
-#include <chrono>
-#include <string>
-
 
 namespace kuzu {
-namespace common {
+namespace parser {
 
-class Timer {
-
+class Statement {
 public:
-    void start() {
-        finished = false;
-        startTime = std::chrono::high_resolution_clock::now();
-    }
+    explicit Statement(common::StatementType statementType)
+        : parsingTime{0}, statementType{statementType}, internal{false} {}
 
-    void stop() {
-        stopTime = std::chrono::high_resolution_clock::now();
-        finished = true;
-    }
+    virtual ~Statement() = default;
 
-    double getDuration() {
-        if (finished) {
-            auto duration = stopTime - startTime;
-            return (double)std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+    common::StatementType getStatementType() const { return statementType; }
+    void setToInternal() { internal = true; }
+    bool isInternal() const { return internal; }
+    void setParsingTime(double time) { parsingTime = time; }
+    double getParsingTime() const { return parsingTime; }
+
+    bool requireTransaction() const {
+        switch (statementType) {
+        case common::StatementType::TRANSACTION:
+            return false;
+        default:
+            return true;
         }
-        throw Exception("Timer is still running.");
     }
 
-    uint64_t getElapsedTimeInMS() {
-        auto now = std::chrono::high_resolution_clock::now();
-        auto duration = now - startTime;
-        auto count = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-        KU_ASSERT(count >= 0);
-        return count;
+    template<class TARGET>
+    TARGET& cast() {
+        return common::ku_dynamic_cast<TARGET&>(*this);
+    }
+    template<class TARGET>
+    const TARGET& constCast() const {
+        return common::ku_dynamic_cast<const TARGET&>(*this);
+    }
+    template<class TARGET>
+    const TARGET* constPtrCast() const {
+        return common::ku_dynamic_cast<const TARGET*>(this);
     }
 
 private:
-    std::chrono::time_point<std::chrono::high_resolution_clock> startTime;
-    std::chrono::time_point<std::chrono::high_resolution_clock> stopTime;
-    bool finished = false;
+    double parsingTime;
+    common::StatementType statementType;
+    // By setting the statement to internal, we still execute the statement, but will not return the
+    // executio result as part of the query result returned to users.
+    // The use case for this is when a query internally generates other queries to finish first,
+    // e.g., `TableFunction::rewriteFunc`.
+    bool internal;
 };
 
-} // namespace common
-} // namespace kuzu
-
-
-namespace kuzu {
-namespace common {
-
-template<typename FROM, typename TO>
-TO ku_dynamic_cast(FROM old) {
-#if defined(KUZU_RUNTIME_CHECKS) || !defined(NDEBUG)
-    TO newVal = dynamic_cast<TO>(old);
-    if constexpr (std::is_pointer<FROM>()) {
-        KU_ASSERT(newVal != nullptr);
-    }
-    return newVal;
-#else
-    return reinterpret_cast<TO>(old);
-#endif
-}
-
-} // namespace common
+} // namespace parser
 } // namespace kuzu
 
 
@@ -3130,140 +2939,12 @@ public:
 
 } // namespace common
 } // namespace kuzu
-#include <memory>
-
-
-namespace kuzu {
-namespace common {
-
-class SelectionVector {
-public:
-    explicit SelectionVector(sel_t capacity) : selectedSize{0} {
-        selectedPositionsBuffer = std::make_unique<sel_t[]>(capacity);
-        resetSelectorToUnselected();
-    }
-
-    inline bool isUnfiltered() const {
-        return selectedPositions == (sel_t*)&INCREMENTAL_SELECTED_POS;
-    }
-    inline void resetSelectorToUnselected() {
-        selectedPositions = (sel_t*)&INCREMENTAL_SELECTED_POS;
-    }
-    inline void resetSelectorToUnselectedWithSize(sel_t size) {
-        selectedPositions = (sel_t*)&INCREMENTAL_SELECTED_POS;
-        selectedSize = size;
-    }
-    inline void resetSelectorToValuePosBuffer() {
-        selectedPositions = selectedPositionsBuffer.get();
-    }
-    inline void resetSelectorToValuePosBufferWithSize(sel_t size) {
-        selectedPositions = selectedPositionsBuffer.get();
-        selectedSize = size;
-    }
-    inline sel_t* getSelectedPositionsBuffer() { return selectedPositionsBuffer.get(); }
-
-    KUZU_API static const sel_t INCREMENTAL_SELECTED_POS[DEFAULT_VECTOR_CAPACITY];
-
-public:
-    sel_t* selectedPositions;
-    // TODO: type of `selectedSize` was changed from `sel_t` to `uint64_t`, which should be reverted
-    // when we removed arrow array in ValueVector. Currently, we need to keep size of arrow array,
-    // which could be larger than MAX of `sel_t`.
-    uint64_t selectedSize;
-
-private:
-    std::unique_ptr<sel_t[]> selectedPositionsBuffer;
-};
-
-} // namespace common
-} // namespace kuzu
-
-#include <cstdint>
-#include <memory>
-#include <mutex>
-#include <stack>
-
-
-namespace kuzu {
-namespace common {
-class VirtualFileSystem;
-}
-
-namespace storage {
-
-class MemoryAllocator;
-class BMFileHandle;
-class BufferManager;
-
-class MemoryBuffer {
-public:
-    MemoryBuffer(MemoryAllocator* allocator, common::page_idx_t blockIdx, uint8_t* buffer);
-    ~MemoryBuffer();
-
-public:
-    uint8_t* buffer;
-    common::page_idx_t pageIdx;
-    MemoryAllocator* allocator;
-};
-
-class MemoryAllocator {
-    friend class MemoryBuffer;
-
-public:
-    explicit MemoryAllocator(BufferManager* bm, common::VirtualFileSystem* vfs);
-    ~MemoryAllocator();
-
-    std::unique_ptr<MemoryBuffer> allocateBuffer(bool initializeToZero = false);
-    inline common::page_offset_t getPageSize() const { return pageSize; }
-
-private:
-    void freeBlock(common::page_idx_t pageIdx);
-
-private:
-    std::unique_ptr<BMFileHandle> fh;
-    BufferManager* bm;
-    common::page_offset_t pageSize;
-    std::stack<common::page_idx_t> freePages;
-    std::mutex allocatorLock;
-};
-
-/*
- * The Memory Manager (MM) is used for allocating/reclaiming intermediate memory blocks.
- * It can allocate a memory buffer of size PAGE_256KB from the buffer manager backed by a
- * BMFileHandle with temp in-mem file.
- *
- * Internally, MM uses a MemoryAllocator. The MemoryAllocator is holding the BMFileHandle backed by
- * a temp in-mem file, and responsible for allocating/reclaiming memory buffers of its size class
- * from the buffer manager. The MemoryAllocator keeps track of free pages in the BMFileHandle, so
- * that it can reuse those freed pages without allocating new pages. The MemoryAllocator is
- * thread-safe, so that multiple threads can allocate/reclaim memory blocks with the same size class
- * at the same time.
- *
- * MM will return a MemoryBuffer to the caller, which is a wrapper of the allocated memory block,
- * and it will automatically call its allocator to reclaim the memory block when it is destroyed.
- */
-class MemoryManager {
-public:
-    explicit MemoryManager(BufferManager* bm, common::VirtualFileSystem* vfs) : bm{bm} {
-        allocator = std::make_unique<MemoryAllocator>(bm, vfs);
-    }
-
-    inline std::unique_ptr<MemoryBuffer> allocateBuffer(bool initializeToZero = false) {
-        return allocator->allocateBuffer(initializeToZero);
-    }
-    inline BufferManager* getBufferManager() const { return bm; }
-
-private:
-    BufferManager* bm;
-    std::unique_ptr<MemoryAllocator> allocator;
-};
-} // namespace storage
-} // namespace kuzu
 
 #include <functional>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 
 namespace kuzu {
@@ -3281,7 +2962,7 @@ template<typename T>
 using expression_map =
     std::unordered_map<std::shared_ptr<Expression>, T, ExpressionHasher, ExpressionEquality>;
 
-class Expression : public std::enable_shared_from_this<Expression> {
+class KUZU_API Expression : public std::enable_shared_from_this<Expression> {
     friend class ExpressionChildrenCollector;
 
 public:
@@ -3301,44 +2982,58 @@ public:
         : Expression{expressionType, std::move(dataType), expression_vector{child},
               std::move(uniqueName)} {}
     // Create leaf expression
-    Expression(
-        common::ExpressionType expressionType, common::LogicalType dataType, std::string uniqueName)
-        : Expression{
-              expressionType, std::move(dataType), expression_vector{}, std::move(uniqueName)} {}
+    Expression(common::ExpressionType expressionType, common::LogicalType dataType,
+        std::string uniqueName)
+        : Expression{expressionType, std::move(dataType), expression_vector{},
+              std::move(uniqueName)} {}
     DELETE_COPY_DEFAULT_MOVE(Expression);
-    virtual ~Expression() = default;
+    virtual ~Expression();
 
-    inline void setAlias(const std::string& name) { alias = name; }
-
-    inline void setUniqueName(const std::string& name) { uniqueName = name; }
-    inline std::string getUniqueName() const {
+    void setUniqueName(const std::string& name) { uniqueName = name; }
+    std::string getUniqueName() const {
         KU_ASSERT(!uniqueName.empty());
         return uniqueName;
     }
 
-    inline common::LogicalType getDataType() const { return dataType; }
-    inline common::LogicalType& getDataTypeReference() { return dataType; }
+    virtual void cast(const common::LogicalType& type);
+    const common::LogicalType& getDataType() const { return dataType; }
 
-    inline bool hasAlias() const { return !alias.empty(); }
-    inline std::string getAlias() const { return alias; }
+    void setAlias(const std::string& newAlias) { alias = newAlias; }
+    bool hasAlias() const { return !alias.empty(); }
+    std::string getAlias() const { return alias; }
 
-    inline uint32_t getNumChildren() const { return children.size(); }
-    inline std::shared_ptr<Expression> getChild(common::vector_idx_t idx) const {
+    common::idx_t getNumChildren() const { return children.size(); }
+    std::shared_ptr<Expression> getChild(common::idx_t idx) const {
+        KU_ASSERT(idx < children.size());
         return children[idx];
     }
-    inline expression_vector getChildren() const { return children; }
-    inline void setChild(common::vector_idx_t idx, std::shared_ptr<Expression> child) {
+    expression_vector getChildren() const { return children; }
+    void setChild(common::idx_t idx, std::shared_ptr<Expression> child) {
+        KU_ASSERT(idx < children.size());
         children[idx] = std::move(child);
     }
 
     expression_vector splitOnAND();
 
-    inline bool operator==(const Expression& rhs) const { return uniqueName == rhs.uniqueName; }
+    bool operator==(const Expression& rhs) const { return uniqueName == rhs.uniqueName; }
 
     std::string toString() const { return hasAlias() ? alias : toStringInternal(); }
 
-    virtual std::unique_ptr<Expression> copy() const {
-        throw common::InternalException("Unimplemented expression copy().");
+    template<class TARGET>
+    TARGET& cast() {
+        return common::ku_dynamic_cast<TARGET&>(*this);
+    }
+    template<class TARGET>
+    TARGET* ptrCast() {
+        return common::ku_dynamic_cast<TARGET*>(this);
+    }
+    template<class TARGET>
+    const TARGET& constCast() const {
+        return common::ku_dynamic_cast<const TARGET&>(*this);
+    }
+    template<class TARGET>
+    const TARGET* constPtrCast() const {
+        return common::ku_dynamic_cast<const TARGET*>(this);
     }
 
 protected:
@@ -3362,13 +3057,1213 @@ struct ExpressionHasher {
 };
 
 struct ExpressionEquality {
-    bool operator()(
-        const std::shared_ptr<Expression>& left, const std::shared_ptr<Expression>& right) const {
+    bool operator()(const std::shared_ptr<Expression>& left,
+        const std::shared_ptr<Expression>& right) const {
         return left->getUniqueName() == right->getUniqueName();
     }
 };
 
 } // namespace binder
+} // namespace kuzu
+
+#include <string.h>
+
+#include <memory>
+
+#include <span>
+
+namespace kuzu {
+namespace common {
+
+class ValueVector;
+
+// A lightweight, immutable view over a SelectionVector, or a subsequence of a selection vector
+// SelectionVectors are also SelectionViews so that you can pass a SelectionVector to functions
+// which take a SelectionView&
+class SelectionView {
+protected:
+    // In DYNAMIC mode, selectedPositions points to a mutable buffer that can be modified through
+    // getMutableBuffer In STATIC mode, selectedPositions points to somewhere in
+    // INCREMENTAL_SELECTED_POS
+    // Note that the vector is considered unfiltered only if it is both STATIC and the first
+    // selected position is 0
+    enum class State {
+        DYNAMIC,
+        STATIC,
+    };
+
+public:
+    // STATIC selectionView over 0..selectedSize
+    explicit SelectionView(sel_t selectedSize);
+
+    template<class Func>
+    void forEach(Func&& func) const {
+        if (state == State::DYNAMIC) {
+            for (size_t i = 0; i < selectedSize; i++) {
+                func(selectedPositions[i]);
+            }
+        } else {
+            const auto start = selectedPositions[0];
+            for (size_t i = start; i < start + selectedSize; i++) {
+                func(i);
+            }
+        }
+    }
+
+    template<class Func>
+    void forEachBreakWhenFalse(Func&& func) const {
+        if (state == State::DYNAMIC) {
+            for (size_t i = 0; i < selectedSize; i++) {
+                if (!func(selectedPositions[i])) {
+                    break;
+                }
+            }
+        } else {
+            const auto start = selectedPositions[0];
+            for (size_t i = start; i < start + selectedSize; i++) {
+                if (!func(i)) {
+                    break;
+                }
+            }
+        }
+    }
+
+    sel_t getSelSize() const { return selectedSize; }
+
+    sel_t operator[](sel_t index) const {
+        KU_ASSERT(index < selectedSize);
+        return selectedPositions[index];
+    }
+
+    bool isUnfiltered() const { return state == State::STATIC && selectedPositions[0] == 0; }
+    bool isStatic() const { return state == State::STATIC; }
+
+    std::span<const sel_t> getSelectedPositions() const {
+        return std::span<const sel_t>(selectedPositions, selectedSize);
+    }
+
+protected:
+    static SelectionView slice(std::span<const sel_t> selectedPositions, State state) {
+        return SelectionView(selectedPositions, state);
+    }
+
+    // Intended to be used only as a subsequence of a SelectionVector in SelectionVector::slice
+    explicit SelectionView(std::span<const sel_t> selectedPositions, State state)
+        : selectedPositions{selectedPositions.data()}, selectedSize{selectedPositions.size()},
+          state{state} {}
+
+protected:
+    const sel_t* selectedPositions;
+    sel_t selectedSize;
+    State state;
+};
+
+class SelectionVector : public SelectionView {
+public:
+    explicit SelectionVector(sel_t capacity)
+        : SelectionView{std::span<const sel_t>(), State::STATIC},
+          selectedPositionsBuffer{std::make_unique<sel_t[]>(capacity)}, capacity{capacity} {
+        setToUnfiltered();
+    }
+
+    // This View should be considered invalid if the SelectionVector it was created from has been
+    // modified
+    SelectionView slice(sel_t startIndex, sel_t selectedSize) const {
+        return SelectionView::slice(getSelectedPositions().subspan(startIndex, selectedSize),
+            state);
+    }
+
+    SelectionVector();
+
+    KUZU_API void setToUnfiltered();
+    KUZU_API void setToUnfiltered(sel_t size);
+    void setRange(sel_t startPos, sel_t size) {
+        KU_ASSERT(startPos + size <= capacity);
+        selectedPositions = selectedPositionsBuffer.get();
+        for (auto i = 0u; i < size; ++i) {
+            selectedPositionsBuffer[i] = startPos + i;
+        }
+        selectedSize = size;
+        state = State::DYNAMIC;
+    }
+
+    // Set to filtered is not very accurate. It sets selectedPositions to a mutable array.
+    void setToFiltered() {
+        selectedPositions = selectedPositionsBuffer.get();
+        state = State::DYNAMIC;
+    }
+    void setToFiltered(sel_t size) {
+        KU_ASSERT(size <= capacity && selectedPositionsBuffer);
+        setToFiltered();
+        selectedSize = size;
+    }
+
+    // Copies the data in selectedPositions into selectedPositionsBuffer
+    void makeDynamic() {
+        memcpy(selectedPositionsBuffer.get(), selectedPositions, selectedSize * sizeof(sel_t));
+        state = State::DYNAMIC;
+        selectedPositions = selectedPositionsBuffer.get();
+    }
+
+    std::span<sel_t> getMutableBuffer() const {
+        return std::span<sel_t>(selectedPositionsBuffer.get(), capacity);
+    }
+
+    void setSelSize(sel_t size) {
+        KU_ASSERT(size <= capacity);
+        selectedSize = size;
+    }
+    void incrementSelSize(sel_t increment = 1) {
+        KU_ASSERT(selectedSize < capacity);
+        selectedSize += increment;
+    }
+
+    sel_t operator[](sel_t index) const {
+        KU_ASSERT(index < capacity);
+        return const_cast<sel_t&>(selectedPositions[index]);
+    }
+    sel_t& operator[](sel_t index) {
+        KU_ASSERT(index < capacity);
+        return const_cast<sel_t&>(selectedPositions[index]);
+    }
+
+    static std::vector<SelectionVector*> fromValueVectors(
+        const std::vector<std::shared_ptr<common::ValueVector>>& vec);
+
+private:
+    std::unique_ptr<sel_t[]> selectedPositionsBuffer;
+    sel_t capacity;
+};
+
+} // namespace common
+} // namespace kuzu
+
+
+namespace kuzu {
+namespace common {
+
+class ValueVector;
+
+// AuxiliaryBuffer holds data which is only used by the targeting dataType.
+class KUZU_API AuxiliaryBuffer {
+public:
+    virtual ~AuxiliaryBuffer() = default;
+
+    template<class TARGET>
+    TARGET& cast() {
+        return common::ku_dynamic_cast<TARGET&>(*this);
+    }
+
+    template<class TARGET>
+    const TARGET& constCast() const {
+        return common::ku_dynamic_cast<const TARGET&>(*this);
+    }
+};
+
+class StringAuxiliaryBuffer : public AuxiliaryBuffer {
+public:
+    explicit StringAuxiliaryBuffer(storage::MemoryManager* memoryManager) {
+        inMemOverflowBuffer = std::make_unique<InMemOverflowBuffer>(memoryManager);
+    }
+
+    InMemOverflowBuffer* getOverflowBuffer() const { return inMemOverflowBuffer.get(); }
+    uint8_t* allocateOverflow(uint64_t size) { return inMemOverflowBuffer->allocateSpace(size); }
+    void resetOverflowBuffer() const { inMemOverflowBuffer->resetBuffer(); }
+
+private:
+    std::unique_ptr<InMemOverflowBuffer> inMemOverflowBuffer;
+};
+
+class KUZU_API StructAuxiliaryBuffer : public AuxiliaryBuffer {
+public:
+    StructAuxiliaryBuffer(const LogicalType& type, storage::MemoryManager* memoryManager);
+
+    void referenceChildVector(idx_t idx, std::shared_ptr<ValueVector> vectorToReference) {
+        childrenVectors[idx] = std::move(vectorToReference);
+    }
+    const std::vector<std::shared_ptr<ValueVector>>& getFieldVectors() const {
+        return childrenVectors;
+    }
+    std::shared_ptr<ValueVector> getFieldVectorShared(idx_t idx) const {
+        return childrenVectors[idx];
+    }
+    ValueVector* getFieldVectorPtr(idx_t idx) const { return childrenVectors[idx].get(); }
+
+private:
+    std::vector<std::shared_ptr<ValueVector>> childrenVectors;
+};
+
+// ListVector layout:
+// To store a list value in the valueVector, we could use two separate vectors.
+// 1. A vector(called offset vector) for the list offsets and length(called list_entry_t): This
+// vector contains the starting indices and length for each list within the data vector.
+// 2. A data vector(called dataVector) to store the actual list elements: This vector holds the
+// actual elements of the lists in a flat, continuous storage. Each list would be represented as a
+// contiguous subsequence of elements in this vector.
+class KUZU_API ListAuxiliaryBuffer : public AuxiliaryBuffer {
+    friend class ListVector;
+
+public:
+    ListAuxiliaryBuffer(const LogicalType& dataVectorType, storage::MemoryManager* memoryManager);
+
+    void setDataVector(std::shared_ptr<ValueVector> vector) { dataVector = std::move(vector); }
+    ValueVector* getDataVector() const { return dataVector.get(); }
+    std::shared_ptr<ValueVector> getSharedDataVector() const { return dataVector; }
+
+    list_entry_t addList(list_size_t listSize);
+
+    uint64_t getSize() const { return size; }
+
+    void resetSize() { size = 0; }
+
+    void resize(uint64_t numValues);
+
+private:
+    void resizeDataVector(ValueVector* dataVector);
+
+    void resizeStructDataVector(ValueVector* dataVector);
+
+private:
+    uint64_t capacity;
+    uint64_t size;
+
+    std::shared_ptr<ValueVector> dataVector;
+};
+
+class AuxiliaryBufferFactory {
+public:
+    static std::unique_ptr<AuxiliaryBuffer> getAuxiliaryBuffer(LogicalType& type,
+        storage::MemoryManager* memoryManager);
+};
+
+} // namespace common
+} // namespace kuzu
+
+
+namespace kuzu {
+namespace common {
+
+// Note that this class is NOT thread-safe.
+class SemiMask {
+public:
+    explicit SemiMask(offset_t maxOffset) : maxOffset{maxOffset}, enabled{false} {}
+
+    virtual ~SemiMask() = default;
+
+    virtual void mask(offset_t nodeOffset) = 0;
+    virtual void maskRange(offset_t startNodeOffset, offset_t endNodeOffset) = 0;
+
+    virtual bool isMasked(offset_t startNodeOffset) = 0;
+
+    // include&exclude
+    virtual offset_vec_t range(uint32_t start, uint32_t end) = 0;
+
+    virtual uint64_t getNumMaskedNodes() const = 0;
+
+    virtual offset_vec_t collectMaskedNodes(uint64_t size) const = 0;
+
+    offset_t getMaxOffset() const { return maxOffset; }
+
+    bool isEnabled() const { return enabled; }
+    void enable() { enabled = true; }
+
+private:
+    offset_t maxOffset;
+    bool enabled;
+};
+
+struct SemiMaskUtil {
+    KUZU_API static std::unique_ptr<SemiMask> createMask(offset_t maxOffset);
+};
+
+class NodeOffsetMaskMap {
+public:
+    NodeOffsetMaskMap() = default;
+
+    offset_t getNumMaskedNode() const;
+
+    void addMask(table_id_t tableID, std::unique_ptr<SemiMask> mask) {
+        KU_ASSERT(!maskMap.contains(tableID));
+        maskMap.insert({tableID, std::move(mask)});
+    }
+
+    table_id_map_t<SemiMask*> getMasks() const {
+        table_id_map_t<SemiMask*> result;
+        for (auto& [tableID, mask] : maskMap) {
+            result.emplace(tableID, mask.get());
+        }
+        return result;
+    }
+
+    bool containsTableID(table_id_t tableID) const { return maskMap.contains(tableID); }
+    SemiMask* getOffsetMask(table_id_t tableID) const {
+        KU_ASSERT(containsTableID(tableID));
+        return maskMap.at(tableID).get();
+    }
+
+    void pin(table_id_t tableID) {
+        if (maskMap.contains(tableID)) {
+            pinnedMask = maskMap.at(tableID).get();
+        } else {
+            pinnedMask = nullptr;
+        }
+    }
+    bool hasPinnedMask() const { return pinnedMask != nullptr; }
+    SemiMask* getPinnedMask() const { return pinnedMask; }
+
+    bool valid(offset_t offset) const {
+        KU_ASSERT(pinnedMask != nullptr);
+        return pinnedMask->isMasked(offset);
+    }
+    bool valid(nodeID_t nodeID) const {
+        KU_ASSERT(maskMap.contains(nodeID.tableID));
+        return maskMap.at(nodeID.tableID)->isMasked(nodeID.offset);
+    }
+
+private:
+    table_id_map_t<std::unique_ptr<SemiMask>> maskMap;
+    SemiMask* pinnedMask = nullptr;
+};
+
+} // namespace common
+} // namespace kuzu
+
+#include <utility>
+
+
+namespace kuzu {
+namespace processor {
+
+using data_chunk_pos_t = common::idx_t;
+constexpr data_chunk_pos_t INVALID_DATA_CHUNK_POS = common::INVALID_IDX;
+using value_vector_pos_t = common::idx_t;
+constexpr value_vector_pos_t INVALID_VALUE_VECTOR_POS = common::INVALID_IDX;
+
+struct DataPos {
+    data_chunk_pos_t dataChunkPos;
+    value_vector_pos_t valueVectorPos;
+
+    DataPos() : dataChunkPos{INVALID_DATA_CHUNK_POS}, valueVectorPos{INVALID_VALUE_VECTOR_POS} {}
+    explicit DataPos(data_chunk_pos_t dataChunkPos, value_vector_pos_t valueVectorPos)
+        : dataChunkPos{dataChunkPos}, valueVectorPos{valueVectorPos} {}
+    explicit DataPos(std::pair<data_chunk_pos_t, value_vector_pos_t> pos)
+        : dataChunkPos{pos.first}, valueVectorPos{pos.second} {}
+
+    static DataPos getInvalidPos() { return DataPos(); }
+    bool isValid() const {
+        return dataChunkPos != INVALID_DATA_CHUNK_POS && valueVectorPos != INVALID_VALUE_VECTOR_POS;
+    }
+
+    inline bool operator==(const DataPos& rhs) const {
+        return (dataChunkPos == rhs.dataChunkPos) && (valueVectorPos == rhs.valueVectorPos);
+    }
+};
+
+} // namespace processor
+} // namespace kuzu
+
+
+namespace kuzu {
+namespace planner {
+class Schema;
+} // namespace planner
+
+namespace processor {
+
+struct DataChunkDescriptor {
+    bool isSingleState;
+    std::vector<common::LogicalType> logicalTypes;
+
+    explicit DataChunkDescriptor(bool isSingleState) : isSingleState{isSingleState} {}
+    DataChunkDescriptor(const DataChunkDescriptor& other)
+        : isSingleState{other.isSingleState},
+          logicalTypes(common::LogicalType::copy(other.logicalTypes)) {}
+
+    inline std::unique_ptr<DataChunkDescriptor> copy() const {
+        return std::make_unique<DataChunkDescriptor>(*this);
+    }
+};
+
+struct KUZU_API ResultSetDescriptor {
+    std::vector<std::unique_ptr<DataChunkDescriptor>> dataChunkDescriptors;
+
+    ResultSetDescriptor() = default;
+    explicit ResultSetDescriptor(
+        std::vector<std::unique_ptr<DataChunkDescriptor>> dataChunkDescriptors)
+        : dataChunkDescriptors{std::move(dataChunkDescriptors)} {}
+    explicit ResultSetDescriptor(planner::Schema* schema);
+    DELETE_BOTH_COPY(ResultSetDescriptor);
+
+    std::unique_ptr<ResultSetDescriptor> copy() const;
+
+    static std::unique_ptr<ResultSetDescriptor> EmptyDescriptor() {
+        return std::make_unique<ResultSetDescriptor>();
+    }
+};
+
+} // namespace processor
+} // namespace kuzu
+
+#include <array>
+#include <cstdint>
+#include <string_view>
+
+
+namespace kuzu {
+namespace common {
+
+extern const char* KUZU_VERSION;
+
+constexpr double DEFAULT_HT_LOAD_FACTOR = 1.5;
+
+// This is the default thread sleep time we use when a thread,
+// e.g., a worker thread is in TaskScheduler, needs to block.
+constexpr uint64_t THREAD_SLEEP_TIME_WHEN_WAITING_IN_MICROS = 500;
+
+constexpr uint64_t DEFAULT_CHECKPOINT_WAIT_TIMEOUT_IN_MICROS = 5000000;
+
+// Note that some places use std::bit_ceil to calculate resizes,
+// which won't work for values other than 2. If this is changed, those will need to be updated
+constexpr uint64_t CHUNK_RESIZE_RATIO = 2;
+
+struct InternalKeyword {
+    static constexpr char ANONYMOUS[] = "";
+    static constexpr char ID[] = "_ID";
+    static constexpr char LABEL[] = "_LABEL";
+    static constexpr char SRC[] = "_SRC";
+    static constexpr char DST[] = "_DST";
+    static constexpr char DIRECTION[] = "_DIRECTION";
+    static constexpr char LENGTH[] = "_LENGTH";
+    static constexpr char NODES[] = "_NODES";
+    static constexpr char RELS[] = "_RELS";
+    static constexpr char STAR[] = "*";
+    static constexpr char PLACE_HOLDER[] = "_PLACE_HOLDER";
+    static constexpr char MAP_KEY[] = "KEY";
+    static constexpr char MAP_VALUE[] = "VALUE";
+
+    static constexpr std::string_view ROW_OFFSET = "_row_offset";
+    static constexpr std::string_view SRC_OFFSET = "_src_offset";
+    static constexpr std::string_view DST_OFFSET = "_dst_offset";
+};
+
+enum PageSizeClass : uint8_t {
+    REGULAR_PAGE = 0,
+    TEMP_PAGE = 1,
+};
+
+struct BufferPoolConstants {
+    // If a user does not specify a max size for BM, we by default set the max size of BM to
+    // maxPhyMemSize * DEFAULT_PHY_MEM_SIZE_RATIO_FOR_BM.
+    static constexpr double DEFAULT_PHY_MEM_SIZE_RATIO_FOR_BM = 0.8;
+// The default max size for a VMRegion.
+#ifdef __32BIT__
+    static constexpr uint64_t DEFAULT_VM_REGION_MAX_SIZE = (uint64_t)1 << 30; // (1GB)
+#elif defined(__ANDROID__)
+    static constexpr uint64_t DEFAULT_VM_REGION_MAX_SIZE = (uint64_t)1 << 38; // (256GB)
+#else
+    static constexpr uint64_t DEFAULT_VM_REGION_MAX_SIZE = static_cast<uint64_t>(1) << 43; // (8TB)
+#endif
+};
+
+struct StorageConstants {
+    static constexpr page_idx_t DB_HEADER_PAGE_IDX = 0;
+    static constexpr char WAL_FILE_SUFFIX[] = "wal";
+    static constexpr char SHADOWING_SUFFIX[] = "shadow";
+    static constexpr char TEMP_FILE_SUFFIX[] = "tmp";
+
+    // The number of pages that we add at one time when we need to grow a file.
+    static constexpr uint64_t PAGE_GROUP_SIZE_LOG2 = 10;
+    static constexpr uint64_t PAGE_GROUP_SIZE = static_cast<uint64_t>(1) << PAGE_GROUP_SIZE_LOG2;
+    static constexpr uint64_t PAGE_IDX_IN_GROUP_MASK =
+        (static_cast<uint64_t>(1) << PAGE_GROUP_SIZE_LOG2) - 1;
+
+    static constexpr double PACKED_CSR_DENSITY = 0.8;
+    static constexpr double LEAF_HIGH_CSR_DENSITY = 1.0;
+
+    static constexpr uint64_t MAX_NUM_ROWS_IN_TABLE = static_cast<uint64_t>(1) << 62;
+};
+
+struct TableOptionConstants {
+    static constexpr char REL_STORAGE_DIRECTION_OPTION[] = "STORAGE_DIRECTION";
+};
+
+// Hash Index Configurations
+struct HashIndexConstants {
+    static constexpr uint16_t SLOT_CAPACITY_BYTES = 256;
+    static constexpr uint64_t NUM_HASH_INDEXES_LOG2 = 8;
+    static constexpr uint64_t NUM_HASH_INDEXES = 1 << NUM_HASH_INDEXES_LOG2;
+};
+
+struct CopyConstants {
+    // Initial size of buffer for CSV Reader.
+    static constexpr uint64_t INITIAL_BUFFER_SIZE = 16384;
+    // This means that we will usually read the entirety of the contents of the file we need for a
+    // block in one read request. It is also very small, which means we can parallelize small files
+    // efficiently.
+    static constexpr uint64_t PARALLEL_BLOCK_SIZE = INITIAL_BUFFER_SIZE / 2;
+
+    static constexpr const char* IGNORE_ERRORS_OPTION_NAME = "IGNORE_ERRORS";
+
+    static constexpr const char* FROM_OPTION_NAME = "FROM";
+    static constexpr const char* TO_OPTION_NAME = "TO";
+
+    static constexpr const char* BOOL_CSV_PARSING_OPTIONS[] = {"HEADER", "PARALLEL",
+        "LIST_UNBRACED", "AUTODETECT", "AUTO_DETECT", CopyConstants::IGNORE_ERRORS_OPTION_NAME};
+    static constexpr bool DEFAULT_CSV_HAS_HEADER = false;
+    static constexpr bool DEFAULT_CSV_PARALLEL = true;
+
+    // Default configuration for csv file parsing
+    static constexpr const char* STRING_CSV_PARSING_OPTIONS[] = {"ESCAPE", "DELIM", "DELIMITER",
+        "QUOTE"};
+    static constexpr char DEFAULT_CSV_ESCAPE_CHAR = '"';
+    static constexpr char DEFAULT_CSV_DELIMITER = ',';
+    static constexpr bool DEFAULT_CSV_ALLOW_UNBRACED_LIST = false;
+    static constexpr char DEFAULT_CSV_QUOTE_CHAR = '"';
+    static constexpr char DEFAULT_CSV_LIST_BEGIN_CHAR = '[';
+    static constexpr char DEFAULT_CSV_LIST_END_CHAR = ']';
+    static constexpr bool DEFAULT_IGNORE_ERRORS = false;
+    static constexpr bool DEFAULT_CSV_AUTO_DETECT = true;
+    static constexpr bool DEFAULT_CSV_SET_DIALECT = false;
+    static constexpr std::array DEFAULT_CSV_DELIMITER_SEARCH_SPACE = {',', ';', '\t', '|'};
+    static constexpr std::array DEFAULT_CSV_QUOTE_SEARCH_SPACE = {'"', '\''};
+    static constexpr std::array DEFAULT_CSV_ESCAPE_SEARCH_SPACE = {'"', '\\', '\''};
+    static constexpr std::array DEFAULT_CSV_NULL_STRINGS = {""};
+
+    static constexpr const char* INT_CSV_PARSING_OPTIONS[] = {"SKIP", "SAMPLE_SIZE"};
+    static constexpr uint64_t DEFAULT_CSV_SKIP_NUM = 0;
+    static constexpr uint64_t DEFAULT_CSV_TYPE_DEDUCTION_SAMPLE_SIZE = 256;
+
+    static constexpr const char* LIST_CSV_PARSING_OPTIONS[] = {"NULL_STRINGS"};
+
+    // metadata columns used to populate CSV warnings
+    static constexpr std::array SHARED_WARNING_DATA_COLUMN_NAMES = {"blockIdx", "offsetInBlock",
+        "startByteOffset", "endByteOffset"};
+    static constexpr std::array SHARED_WARNING_DATA_COLUMN_TYPES = {LogicalTypeID::UINT64,
+        LogicalTypeID::UINT32, LogicalTypeID::UINT64, LogicalTypeID::UINT64};
+    static constexpr column_id_t SHARED_WARNING_DATA_NUM_COLUMNS =
+        SHARED_WARNING_DATA_COLUMN_NAMES.size();
+
+    static constexpr std::array CSV_SPECIFIC_WARNING_DATA_COLUMN_NAMES = {"fileIdx"};
+    static constexpr std::array CSV_SPECIFIC_WARNING_DATA_COLUMN_TYPES = {LogicalTypeID::UINT32};
+
+    static constexpr std::array CSV_WARNING_DATA_COLUMN_NAMES =
+        arrayConcat(SHARED_WARNING_DATA_COLUMN_NAMES, CSV_SPECIFIC_WARNING_DATA_COLUMN_NAMES);
+    static constexpr std::array CSV_WARNING_DATA_COLUMN_TYPES =
+        arrayConcat(SHARED_WARNING_DATA_COLUMN_TYPES, CSV_SPECIFIC_WARNING_DATA_COLUMN_TYPES);
+    static constexpr column_id_t CSV_WARNING_DATA_NUM_COLUMNS =
+        CSV_WARNING_DATA_COLUMN_NAMES.size();
+    static_assert(CSV_WARNING_DATA_NUM_COLUMNS == CSV_WARNING_DATA_COLUMN_TYPES.size());
+
+    static constexpr column_id_t MAX_NUM_WARNING_DATA_COLUMNS = CSV_WARNING_DATA_NUM_COLUMNS;
+};
+
+struct PlannerKnobs {
+    static constexpr double NON_EQUALITY_PREDICATE_SELECTIVITY = 0.1;
+    static constexpr double EQUALITY_PREDICATE_SELECTIVITY = 0.01;
+    static constexpr uint64_t BUILD_PENALTY = 2;
+    // Avoid doing probe to build SIP if we have to accumulate a probe side that is much bigger than
+    // build side. Also avoid doing build to probe SIP if probe side is not much bigger than build.
+    static constexpr uint64_t SIP_RATIO = 5;
+};
+
+struct OrderByConstants {
+    static constexpr uint64_t NUM_BYTES_FOR_PAYLOAD_IDX = 8;
+    static constexpr uint64_t MIN_LIMIT_RATIO_TO_REDUCE = 2;
+};
+
+struct ParquetConstants {
+    static constexpr uint64_t PARQUET_DEFINE_VALID = 65535;
+    static constexpr const char* PARQUET_MAGIC_WORDS = "PAR1";
+    // We limit the uncompressed page size to 100MB.
+    // The max size in Parquet is 2GB, but we choose a more conservative limit.
+    static constexpr uint64_t MAX_UNCOMPRESSED_PAGE_SIZE = 100000000;
+    // Dictionary pages must be below 2GB. Unlike data pages, there's only one dictionary page.
+    // For this reason we go with a much higher, but still a conservative upper bound of 1GB.
+    static constexpr uint64_t MAX_UNCOMPRESSED_DICT_PAGE_SIZE = 1e9;
+    // The maximum size a key entry in an RLE page takes.
+    static constexpr uint64_t MAX_DICTIONARY_KEY_SIZE = sizeof(uint32_t);
+    // The size of encoding the string length.
+    static constexpr uint64_t STRING_LENGTH_SIZE = sizeof(uint32_t);
+    static constexpr uint64_t MAX_STRING_STATISTICS_SIZE = 10000;
+    static constexpr uint64_t PARQUET_INTERVAL_SIZE = 12;
+    static constexpr uint64_t PARQUET_UUID_SIZE = 16;
+};
+
+struct ExportCSVConstants {
+    static constexpr const char* DEFAULT_CSV_NEWLINE = "\n\r";
+    static constexpr const char* DEFAULT_NULL_STR = "";
+    static constexpr bool DEFAULT_FORCE_QUOTE = false;
+    static constexpr uint64_t DEFAULT_CSV_FLUSH_SIZE = 4096 * 8;
+};
+
+struct PortDBConstants {
+    static constexpr char INDEX_FILE_NAME[] = "index.cypher";
+    static constexpr char SCHEMA_FILE_NAME[] = "schema.cypher";
+    static constexpr char COPY_FILE_NAME[] = "copy.cypher";
+    static constexpr const char* SCHEMA_ONLY_OPTION = "SCHEMA_ONLY";
+    static constexpr const char* EXPORT_FORMAT_OPTION = "FORMAT";
+    static constexpr const char* DEFAULT_EXPORT_FORMAT_OPTION = "PARQUET";
+};
+
+struct WarningConstants {
+    static constexpr std::array WARNING_TABLE_COLUMN_NAMES{"query_id", "message", "file_path",
+        "line_number", "skipped_line_or_record"};
+    static constexpr std::array WARNING_TABLE_COLUMN_DATA_TYPES{LogicalTypeID::UINT64,
+        LogicalTypeID::STRING, LogicalTypeID::STRING, LogicalTypeID::UINT64, LogicalTypeID::STRING};
+    static constexpr uint64_t WARNING_TABLE_NUM_COLUMNS = WARNING_TABLE_COLUMN_NAMES.size();
+
+    static_assert(WARNING_TABLE_COLUMN_DATA_TYPES.size() == WARNING_TABLE_NUM_COLUMNS);
+};
+
+static constexpr char ATTACHED_KUZU_DB_TYPE[] = "KUZU";
+
+static constexpr char LOCAL_DB_NAME[] = "local(kuzu)";
+
+constexpr auto DECIMAL_PRECISION_LIMIT = 38;
+
+} // namespace common
+} // namespace kuzu
+
+#include <type_traits>
+
+
+namespace kuzu {
+namespace common {
+
+class ValueVector;
+
+template<class... Funcs>
+struct overload : Funcs... {
+    explicit overload(Funcs... funcs) : Funcs(funcs)... {}
+    using Funcs::operator()...;
+};
+
+class TypeUtils {
+public:
+    template<typename Func, typename... Types, size_t... indices>
+    static void paramPackForEachHelper(const Func& func, std::index_sequence<indices...>,
+        Types&&... values) {
+        ((func(indices, values)), ...);
+    }
+
+    template<typename Func, typename... Types>
+    static void paramPackForEach(const Func& func, Types&&... values) {
+        paramPackForEachHelper(func, std::index_sequence_for<Types...>(),
+            std::forward<Types>(values)...);
+    }
+
+    static std::string entryToString(const LogicalType& dataType, const uint8_t* value,
+        ValueVector* vector);
+
+    template<typename T>
+    static inline std::string toString(const T& val, void* /*valueVector*/ = nullptr) {
+        if constexpr (std::is_same_v<T, std::string>) {
+            return val;
+        } else if constexpr (std::is_same_v<T, ku_string_t>) {
+            return val.getAsString();
+        } else {
+            static_assert(std::is_same<T, int64_t>::value || std::is_same<T, int32_t>::value ||
+                          std::is_same<T, int16_t>::value || std::is_same<T, int8_t>::value ||
+                          std::is_same<T, uint64_t>::value || std::is_same<T, uint32_t>::value ||
+                          std::is_same<T, uint16_t>::value || std::is_same<T, uint8_t>::value ||
+                          std::is_same<T, double>::value || std::is_same<T, float>::value);
+            return std::to_string(val);
+        }
+    }
+    static std::string nodeToString(const struct_entry_t& val, ValueVector* vector);
+    static std::string relToString(const struct_entry_t& val, ValueVector* vector);
+
+    static inline void encodeOverflowPtr(uint64_t& overflowPtr, page_idx_t pageIdx,
+        uint32_t pageOffset) {
+        memcpy(&overflowPtr, &pageIdx, 4);
+        memcpy(((uint8_t*)&overflowPtr) + 4, &pageOffset, 4);
+    }
+    static inline void decodeOverflowPtr(uint64_t overflowPtr, page_idx_t& pageIdx,
+        uint32_t& pageOffset) {
+        pageIdx = 0;
+        memcpy(&pageIdx, &overflowPtr, 4);
+        memcpy(&pageOffset, ((uint8_t*)&overflowPtr) + 4, 4);
+    }
+
+    template<typename T>
+    static inline constexpr common::PhysicalTypeID getPhysicalTypeIDForType() {
+        if constexpr (std::is_same_v<T, int64_t>) {
+            return common::PhysicalTypeID::INT64;
+        } else if constexpr (std::is_same_v<T, int32_t>) {
+            return common::PhysicalTypeID::INT32;
+        } else if constexpr (std::is_same_v<T, int16_t>) {
+            return common::PhysicalTypeID::INT16;
+        } else if constexpr (std::is_same_v<T, int8_t>) {
+            return common::PhysicalTypeID::INT8;
+        } else if constexpr (std::is_same_v<T, uint64_t>) {
+            return common::PhysicalTypeID::UINT64;
+        } else if constexpr (std::is_same_v<T, uint32_t>) {
+            return common::PhysicalTypeID::UINT32;
+        } else if constexpr (std::is_same_v<T, uint16_t>) {
+            return common::PhysicalTypeID::UINT16;
+        } else if constexpr (std::is_same_v<T, uint8_t>) {
+            return common::PhysicalTypeID::UINT8;
+        } else if constexpr (std::is_same_v<T, float>) {
+            return common::PhysicalTypeID::FLOAT;
+        } else if constexpr (std::is_same_v<T, double>) {
+            return common::PhysicalTypeID::DOUBLE;
+        } else if constexpr (std::is_same_v<T, int128_t>) {
+            return common::PhysicalTypeID::INT128;
+        } else if constexpr (std::is_same_v<T, interval_t>) {
+            return common::PhysicalTypeID::INTERVAL;
+        } else if constexpr (std::same_as<T, ku_string_t> || std::same_as<T, std::string> ||
+                             std::same_as<T, std::string_view>) {
+            return common::PhysicalTypeID::STRING;
+        } else {
+            KU_UNREACHABLE;
+        }
+    }
+
+    /*
+     * TypeUtils::visit can be used to call generic code on all or some Logical and Physical type
+     * variants with access to type information.
+     *
+     * E.g.
+     *
+     *  std::string result;
+     *  visit(dataType, [&]<typename T>(T) {
+     *      if constexpr(std::is_same_v<T, ku_string_t>()) {
+     *          result = vector->getValue<ku_string_t>(0).getAsString();
+     *      } else if (std::integral<T>) {
+     *          result = std::to_string(vector->getValue<T>(0));
+     *      } else {
+     *          KU_UNREACHABLE;
+     *      }
+     *  });
+     *
+     * or
+     *  std::string result;
+     *  visit(dataType,
+     *      [&](ku_string_t) {
+     *          result = vector->getValue<ku_string_t>(0);
+     *      },
+     *      [&]<std::integral T>(T) {
+     *          result = std::to_string(vector->getValue<T>(0));
+     *      },
+     *      [](auto) { KU_UNREACHABLE; }
+     *  );
+     *
+     * Note that when multiple functions are provided, at least one function must match all data
+     * types.
+     *
+     * Also note that implicit conversions may occur with the multi-function variant
+     * if you don't include a generic auto function to cover types which aren't explicitly included.
+     * See https://en.cppreference.com/w/cpp/utility/variant/visit
+     */
+    template<typename... Fs>
+    static inline auto visit(const LogicalType& dataType, Fs... funcs) {
+        // Note: arguments are used only for type deduction and have no meaningful value.
+        // They should be optimized out by the compiler
+        auto func = overload(funcs...);
+        switch (dataType.getLogicalTypeID()) {
+        /* NOLINTBEGIN(bugprone-branch-clone)*/
+        case LogicalTypeID::INT8:
+            return func(int8_t());
+        case LogicalTypeID::UINT8:
+            return func(uint8_t());
+        case LogicalTypeID::INT16:
+            return func(int16_t());
+        case LogicalTypeID::UINT16:
+            return func(uint16_t());
+        case LogicalTypeID::INT32:
+            return func(int32_t());
+        case LogicalTypeID::UINT32:
+            return func(uint32_t());
+        case LogicalTypeID::SERIAL:
+        case LogicalTypeID::INT64:
+            return func(int64_t());
+        case LogicalTypeID::UINT64:
+            return func(uint64_t());
+        case LogicalTypeID::BOOL:
+            return func(bool());
+        case LogicalTypeID::INT128:
+            return func(int128_t());
+        case LogicalTypeID::DOUBLE:
+            return func(double());
+        case LogicalTypeID::FLOAT:
+            return func(float());
+        case LogicalTypeID::DECIMAL:
+            switch (dataType.getPhysicalType()) {
+            case PhysicalTypeID::INT16:
+                return func(int16_t());
+            case PhysicalTypeID::INT32:
+                return func(int32_t());
+            case PhysicalTypeID::INT64:
+                return func(int64_t());
+            case PhysicalTypeID::INT128:
+                return func(int128_t());
+            default:
+                KU_UNREACHABLE;
+            }
+        case LogicalTypeID::INTERVAL:
+            return func(interval_t());
+        case LogicalTypeID::INTERNAL_ID:
+            return func(internalID_t());
+        case LogicalTypeID::STRING:
+            return func(ku_string_t());
+        case LogicalTypeID::DATE:
+            return func(date_t());
+        case LogicalTypeID::TIMESTAMP_NS:
+            return func(timestamp_ns_t());
+        case LogicalTypeID::TIMESTAMP_MS:
+            return func(timestamp_ms_t());
+        case LogicalTypeID::TIMESTAMP_SEC:
+            return func(timestamp_sec_t());
+        case LogicalTypeID::TIMESTAMP_TZ:
+            return func(timestamp_tz_t());
+        case LogicalTypeID::TIMESTAMP:
+            return func(timestamp_t());
+        case LogicalTypeID::BLOB:
+            return func(blob_t());
+        case LogicalTypeID::UUID:
+            return func(ku_uuid_t());
+        case LogicalTypeID::ARRAY:
+        case LogicalTypeID::LIST:
+            return func(list_entry_t());
+        case LogicalTypeID::MAP:
+            return func(map_entry_t());
+        case LogicalTypeID::NODE:
+        case LogicalTypeID::REL:
+        case LogicalTypeID::RECURSIVE_REL:
+        case LogicalTypeID::STRUCT:
+            return func(struct_entry_t());
+        case LogicalTypeID::UNION:
+            return func(union_entry_t());
+        /* NOLINTEND(bugprone-branch-clone)*/
+        default:
+            // Unsupported type
+            KU_UNREACHABLE;
+        }
+    }
+
+    template<typename... Fs>
+    static inline auto visit(PhysicalTypeID dataType, Fs&&... funcs) {
+        // Note: arguments are used only for type deduction and have no meaningful value.
+        // They should be optimized out by the compiler
+        auto func = overload(funcs...);
+        switch (dataType) {
+        /* NOLINTBEGIN(bugprone-branch-clone)*/
+        case PhysicalTypeID::INT8:
+            return func(int8_t());
+        case PhysicalTypeID::UINT8:
+            return func(uint8_t());
+        case PhysicalTypeID::INT16:
+            return func(int16_t());
+        case PhysicalTypeID::UINT16:
+            return func(uint16_t());
+        case PhysicalTypeID::INT32:
+            return func(int32_t());
+        case PhysicalTypeID::UINT32:
+            return func(uint32_t());
+        case PhysicalTypeID::INT64:
+            return func(int64_t());
+        case PhysicalTypeID::UINT64:
+            return func(uint64_t());
+        case PhysicalTypeID::BOOL:
+            return func(bool());
+        case PhysicalTypeID::INT128:
+            return func(int128_t());
+        case PhysicalTypeID::DOUBLE:
+            return func(double());
+        case PhysicalTypeID::FLOAT:
+            return func(float());
+        case PhysicalTypeID::INTERVAL:
+            return func(interval_t());
+        case PhysicalTypeID::INTERNAL_ID:
+            return func(internalID_t());
+        case PhysicalTypeID::STRING:
+            return func(ku_string_t());
+        case PhysicalTypeID::ARRAY:
+        case PhysicalTypeID::LIST:
+            return func(list_entry_t());
+        case PhysicalTypeID::STRUCT:
+            return func(struct_entry_t());
+        /* NOLINTEND(bugprone-branch-clone)*/
+        case PhysicalTypeID::ANY:
+        case PhysicalTypeID::POINTER:
+        case PhysicalTypeID::ALP_EXCEPTION_DOUBLE:
+        case PhysicalTypeID::ALP_EXCEPTION_FLOAT:
+            // Unsupported type
+            KU_UNREACHABLE;
+            // Needed for return type deduction to work
+            return func(uint8_t());
+        default:
+            KU_UNREACHABLE;
+        }
+    }
+};
+
+// Forward declaration of template specializations.
+template<>
+std::string TypeUtils::toString(const int128_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const bool& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const internalID_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const date_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const timestamp_ns_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const timestamp_ms_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const timestamp_sec_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const timestamp_tz_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const timestamp_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const interval_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const ku_string_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const blob_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const ku_uuid_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const list_entry_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const map_entry_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const struct_entry_t& val, void* valueVector);
+template<>
+std::string TypeUtils::toString(const union_entry_t& val, void* valueVector);
+
+} // namespace common
+} // namespace kuzu
+
+#include <atomic>
+#include <mutex>
+
+
+namespace kuzu {
+namespace binder {
+struct BoundAlterInfo;
+}
+namespace catalog {
+class CatalogEntry;
+class CatalogSet;
+class SequenceCatalogEntry;
+struct SequenceRollbackData;
+} // namespace catalog
+namespace main {
+class ClientContext;
+} // namespace main
+namespace storage {
+class LocalWAL;
+class LocalStorage;
+class UndoBuffer;
+class WAL;
+class VersionInfo;
+class UpdateInfo;
+struct VectorUpdateInfo;
+class ChunkedNodeGroup;
+class VersionRecordHandler;
+} // namespace storage
+namespace transaction {
+class TransactionManager;
+
+enum class TransactionType : uint8_t { READ_ONLY, WRITE, CHECKPOINT, DUMMY, RECOVERY };
+
+class LocalCacheManager;
+class KUZU_API LocalCacheObject {
+public:
+    explicit LocalCacheObject(std::string key) : key{std::move(key)} {}
+
+    virtual ~LocalCacheObject() = default;
+
+    std::string getKey() const { return key; }
+
+    template<typename T>
+    T* cast() {
+        return common::ku_dynamic_cast<T*>(this);
+    }
+
+private:
+    std::string key;
+};
+
+class LocalCacheManager {
+public:
+    bool contains(const std::string& key) {
+        std::unique_lock lck{mtx};
+        return cachedObjects.contains(key);
+    }
+    LocalCacheObject& at(const std::string& key) {
+        std::unique_lock lck{mtx};
+        return *cachedObjects.at(key);
+    }
+    bool put(std::unique_ptr<LocalCacheObject> object);
+
+    void remove(const std::string& key) {
+        std::unique_lock lck{mtx};
+        cachedObjects.erase(key);
+    }
+
+private:
+    std::unordered_map<std::string, std::unique_ptr<LocalCacheObject>> cachedObjects;
+    std::mutex mtx;
+};
+
+class KUZU_API Transaction {
+    friend class TransactionManager;
+
+public:
+    static constexpr common::transaction_t DUMMY_TRANSACTION_ID = 0;
+    static constexpr common::transaction_t DUMMY_START_TIMESTAMP = 0;
+    static constexpr common::transaction_t START_TRANSACTION_ID =
+        static_cast<common::transaction_t>(1) << 63;
+
+    Transaction(main::ClientContext& clientContext, TransactionType transactionType,
+        common::transaction_t transactionID, common::transaction_t startTS);
+
+    explicit Transaction(TransactionType transactionType) noexcept;
+    Transaction(TransactionType transactionType, common::transaction_t ID,
+        common::transaction_t startTS) noexcept;
+
+    ~Transaction();
+
+    TransactionType getType() const { return type; }
+    bool isReadOnly() const { return TransactionType::READ_ONLY == type; }
+    bool isWriteTransaction() const { return TransactionType::WRITE == type; }
+    bool isDummy() const { return TransactionType::DUMMY == type; }
+    bool isRecovery() const { return TransactionType::RECOVERY == type; }
+    common::transaction_t getID() const { return ID; }
+    common::transaction_t getStartTS() const { return startTS; }
+    common::transaction_t getCommitTS() const { return commitTS; }
+    int64_t getCurrentTS() const { return currentTS; }
+
+    void setForceCheckpoint() { forceCheckpoint = true; }
+    bool shouldAppendToUndoBuffer() const {
+        // Only write transactions and recovery transactions should append to the undo buffer.
+        return isWriteTransaction() || isRecovery();
+    }
+    bool shouldLogToWAL() const;
+    storage::LocalWAL& getLocalWAL() const {
+        KU_ASSERT(localWAL);
+        return *localWAL;
+    }
+
+    bool shouldForceCheckpoint() const;
+
+    void commit(storage::WAL* wal);
+    void rollback(storage::WAL* wal);
+
+    uint64_t getEstimatedMemUsage() const;
+    storage::LocalStorage* getLocalStorage() const { return localStorage.get(); }
+    LocalCacheManager& getLocalCacheManager() { return localCacheManager; }
+    bool isUnCommitted(common::table_id_t tableID, common::offset_t nodeOffset) const;
+    common::row_idx_t getLocalRowIdx(common::table_id_t tableID,
+        common::offset_t nodeOffset) const {
+        return nodeOffset - getMinUncommittedNodeOffset(tableID);
+    }
+    common::offset_t getUncommittedOffset(common::table_id_t tableID,
+        common::row_idx_t localRowIdx) const {
+        return getMinUncommittedNodeOffset(tableID) + localRowIdx;
+    }
+
+    void pushCreateDropCatalogEntry(catalog::CatalogSet& catalogSet,
+        catalog::CatalogEntry& catalogEntry, bool isInternal, bool skipLoggingToWAL = false);
+    void pushAlterCatalogEntry(catalog::CatalogSet& catalogSet, catalog::CatalogEntry& catalogEntry,
+        const binder::BoundAlterInfo& alterInfo);
+    void pushSequenceChange(catalog::SequenceCatalogEntry* sequenceEntry, int64_t kCount,
+        const catalog::SequenceRollbackData& data);
+    void pushInsertInfo(common::node_group_idx_t nodeGroupIdx, common::row_idx_t startRow,
+        common::row_idx_t numRows, const storage::VersionRecordHandler* versionRecordHandler) const;
+    void pushDeleteInfo(common::node_group_idx_t nodeGroupIdx, common::row_idx_t startRow,
+        common::row_idx_t numRows, const storage::VersionRecordHandler* versionRecordHandler) const;
+    void pushVectorUpdateInfo(storage::UpdateInfo& updateInfo, common::idx_t vectorIdx,
+        storage::VectorUpdateInfo& vectorUpdateInfo) const;
+
+private:
+    common::offset_t getMinUncommittedNodeOffset(common::table_id_t tableID) const;
+
+private:
+    TransactionType type;
+    common::transaction_t ID;
+    common::transaction_t startTS;
+    common::transaction_t commitTS;
+    int64_t currentTS;
+    main::ClientContext* clientContext;
+    std::unique_ptr<storage::LocalStorage> localStorage;
+    std::unique_ptr<storage::UndoBuffer> undoBuffer;
+    std::unique_ptr<storage::LocalWAL> localWAL;
+    LocalCacheManager localCacheManager;
+    bool forceCheckpoint;
+    std::atomic<bool> hasCatalogChanges;
+};
+
+// TODO(bmwinger): These shouldn't need to be exported
+extern KUZU_API Transaction DUMMY_TRANSACTION;
+extern KUZU_API Transaction DUMMY_CHECKPOINT_TRANSACTION;
+
+} // namespace transaction
+} // namespace kuzu
+
+#include <memory>
+#include <string>
+#include <unordered_map>
+
+
+namespace kuzu {
+namespace main {
+
+/**
+ * @brief A prepared statement is a parameterized query which can avoid planning the same query for
+ * repeated execution.
+ */
+class PreparedStatement {
+    friend class Connection;
+    friend class ClientContext;
+    friend class testing::TestHelper;
+    friend class testing::TestRunner;
+
+public:
+    bool isTransactionStatement() const;
+    /**
+     * @return the query is prepared successfully or not.
+     */
+    KUZU_API bool isSuccess() const;
+    /**
+     * @return the error message if the query is not prepared successfully.
+     */
+    KUZU_API std::string getErrorMessage() const;
+    /**
+     * @return the prepared statement is read-only or not.
+     */
+    KUZU_API bool isReadOnly() const;
+
+    std::unordered_map<std::string, std::shared_ptr<common::Value>> getParameterMap() {
+        return parameterMap;
+    }
+
+    common::StatementType getStatementType() const;
+
+    void validateExecuteParam(const std::string& paramName, common::Value* param) const;
+
+    KUZU_API ~PreparedStatement();
+
+private:
+    bool isProfile() const;
+
+private:
+    bool success = true;
+    bool readOnly = false;
+    bool useInternalCatalogEntry = false;
+    std::string errMsg;
+    PreparedSummary preparedSummary;
+    std::unordered_map<std::string, std::shared_ptr<common::Value>> parameterMap;
+    std::unique_ptr<binder::BoundStatementResult> statementResult;
+    std::unique_ptr<planner::LogicalPlan> logicalPlan;
+    std::shared_ptr<parser::Statement> parsedStatement;
+};
+
+} // namespace main
 } // namespace kuzu
 
 #include <utility>
@@ -3510,13 +4405,12 @@ public:
      * @param type the logical type of the value.
      * @param val_ the string value to set.
      */
-    KUZU_API explicit Value(std::unique_ptr<LogicalType> type, std::string val_);
+    KUZU_API explicit Value(LogicalType type, std::string val_);
     /**
      * @param dataType the logical type of the value.
      * @param children a vector of children values.
      */
-    KUZU_API explicit Value(
-        std::unique_ptr<LogicalType> dataType, std::vector<std::unique_ptr<Value>> children);
+    KUZU_API explicit Value(LogicalType dataType, std::vector<std::unique_ptr<Value>> children);
     /**
      * @param other the value to copy from.
      */
@@ -3527,6 +4421,7 @@ public:
      */
     KUZU_API Value(Value&& other) = default;
     KUZU_API Value& operator=(Value&& other) = default;
+    KUZU_API bool operator==(const Value& rhs) const;
 
     /**
      * @brief Sets the data type of the Value.
@@ -3536,7 +4431,7 @@ public:
     /**
      * @return the dataType of the value.
      */
-    KUZU_API LogicalType* getDataType() const;
+    KUZU_API const LogicalType& getDataType() const;
     /**
      * @brief Sets the null flag of the Value.
      * @param flag null value flag to set.
@@ -3551,10 +4446,15 @@ public:
      */
     KUZU_API bool isNull() const;
     /**
-     * @brief Copies from the value.
+     * @brief Copies from the row layout value.
      * @param value value to copy from.
      */
-    KUZU_API void copyValueFrom(const uint8_t* value);
+    KUZU_API void copyFromRowLayout(const uint8_t* value);
+    /**
+     * @brief Copies from the col layout value.
+     * @param value value to copy from.
+     */
+    KUZU_API void copyFromColLayout(const uint8_t* value, ValueVector* vec = nullptr);
     /**
      * @brief Copies from the other.
      * @param other value to copy from.
@@ -3591,25 +4491,36 @@ public:
      */
     KUZU_API std::string toString() const;
 
-    void serialize(Serializer& serializer) const;
+    KUZU_API void serialize(Serializer& serializer) const;
 
-    static std::unique_ptr<Value> deserialize(Deserializer& deserializer);
+    KUZU_API static std::unique_ptr<Value> deserialize(Deserializer& deserializer);
+
+    KUZU_API void validateType(common::LogicalTypeID targetTypeID) const;
+
+    bool hasNoneNullChildren() const;
+    bool allowTypeChange() const;
+
+    uint64_t computeHash() const;
+
+    KUZU_API uint32_t getChildrenSize() const { return childrenSize; }
 
 private:
     Value();
     explicit Value(const LogicalType& dataType);
 
-    void copyFromFixedList(const uint8_t* fixedList);
-    void copyFromVarList(ku_list_t& list, const LogicalType& childType);
-    void copyFromStruct(const uint8_t* kuStruct);
+    void resizeChildrenVector(uint64_t size, const LogicalType& childType);
+    void copyFromRowLayoutList(const ku_list_t& list, const LogicalType& childType);
+    void copyFromColLayoutList(const list_entry_t& list, ValueVector* vec);
+    void copyFromRowLayoutStruct(const uint8_t* kuStruct);
+    void copyFromColLayoutStruct(const struct_entry_t& structEntry, ValueVector* vec);
     void copyFromUnion(const uint8_t* kuUnion);
 
-    std::string rdfVariantToString() const;
     std::string mapToString() const;
     std::string listToString() const;
     std::string structToString() const;
     std::string nodeToString() const;
     std::string relToString() const;
+    std::string decimalToString() const;
 
 public:
     union Val {
@@ -3634,11 +4545,12 @@ public:
     std::string strVal;
 
 private:
-    std::unique_ptr<LogicalType> dataType;
+    LogicalType dataType;
     bool isNull_;
 
-    // Note: ALWAYS use childrenSize over children.size(). We do NOT resize children when iterating
-    // with nested value. So children.size() reflects the capacity() rather the actual size.
+    // Note: ALWAYS use childrenSize over children.size(). We do NOT resize children when
+    // iterating with nested value. So children.size() reflects the capacity() rather the actual
+    // size.
     std::vector<std::unique_ptr<Value>> children;
     uint32_t childrenSize;
 };
@@ -3648,7 +4560,7 @@ private:
  */
 template<>
 KUZU_API inline bool Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::BOOL);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::BOOL);
     return val.booleanVal;
 }
 
@@ -3657,7 +4569,7 @@ KUZU_API inline bool Value::getValue() const {
  */
 template<>
 KUZU_API inline int8_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::INT8);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::INT8);
     return val.int8Val;
 }
 
@@ -3666,7 +4578,7 @@ KUZU_API inline int8_t Value::getValue() const {
  */
 template<>
 KUZU_API inline int16_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::INT16);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::INT16);
     return val.int16Val;
 }
 
@@ -3675,7 +4587,7 @@ KUZU_API inline int16_t Value::getValue() const {
  */
 template<>
 KUZU_API inline int32_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::INT32);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::INT32);
     return val.int32Val;
 }
 
@@ -3684,7 +4596,7 @@ KUZU_API inline int32_t Value::getValue() const {
  */
 template<>
 KUZU_API inline int64_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::INT64);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::INT64);
     return val.int64Val;
 }
 
@@ -3693,7 +4605,7 @@ KUZU_API inline int64_t Value::getValue() const {
  */
 template<>
 KUZU_API inline uint64_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::UINT64);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::UINT64);
     return val.uint64Val;
 }
 
@@ -3702,7 +4614,7 @@ KUZU_API inline uint64_t Value::getValue() const {
  */
 template<>
 KUZU_API inline uint32_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::UINT32);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::UINT32);
     return val.uint32Val;
 }
 
@@ -3711,7 +4623,7 @@ KUZU_API inline uint32_t Value::getValue() const {
  */
 template<>
 KUZU_API inline uint16_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::UINT16);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::UINT16);
     return val.uint16Val;
 }
 
@@ -3720,7 +4632,7 @@ KUZU_API inline uint16_t Value::getValue() const {
  */
 template<>
 KUZU_API inline uint8_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::UINT8);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::UINT8);
     return val.uint8Val;
 }
 
@@ -3729,8 +4641,7 @@ KUZU_API inline uint8_t Value::getValue() const {
  */
 template<>
 KUZU_API inline int128_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::INT128 ||
-              dataType->getLogicalTypeID() == LogicalTypeID::UUID);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::INT128);
     return val.int128Val;
 }
 
@@ -3739,7 +4650,7 @@ KUZU_API inline int128_t Value::getValue() const {
  */
 template<>
 KUZU_API inline float Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::FLOAT);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::FLOAT);
     return val.floatVal;
 }
 
@@ -3748,7 +4659,7 @@ KUZU_API inline float Value::getValue() const {
  */
 template<>
 KUZU_API inline double Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::DOUBLE);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::DOUBLE);
     return val.doubleVal;
 }
 
@@ -3757,7 +4668,7 @@ KUZU_API inline double Value::getValue() const {
  */
 template<>
 KUZU_API inline date_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::DATE);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::DATE);
     return date_t{val.int32Val};
 }
 
@@ -3766,7 +4677,7 @@ KUZU_API inline date_t Value::getValue() const {
  */
 template<>
 KUZU_API inline timestamp_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::TIMESTAMP);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::TIMESTAMP);
     return timestamp_t{val.int64Val};
 }
 
@@ -3775,7 +4686,7 @@ KUZU_API inline timestamp_t Value::getValue() const {
  */
 template<>
 KUZU_API inline timestamp_ns_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::TIMESTAMP_NS);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::TIMESTAMP_NS);
     return timestamp_ns_t{val.int64Val};
 }
 
@@ -3784,7 +4695,7 @@ KUZU_API inline timestamp_ns_t Value::getValue() const {
  */
 template<>
 KUZU_API inline timestamp_ms_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::TIMESTAMP_MS);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::TIMESTAMP_MS);
     return timestamp_ms_t{val.int64Val};
 }
 
@@ -3793,7 +4704,7 @@ KUZU_API inline timestamp_ms_t Value::getValue() const {
  */
 template<>
 KUZU_API inline timestamp_sec_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::TIMESTAMP_SEC);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::TIMESTAMP_SEC);
     return timestamp_sec_t{val.int64Val};
 }
 
@@ -3802,7 +4713,7 @@ KUZU_API inline timestamp_sec_t Value::getValue() const {
  */
 template<>
 KUZU_API inline timestamp_tz_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::TIMESTAMP_TZ);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::TIMESTAMP_TZ);
     return timestamp_tz_t{val.int64Val};
 }
 
@@ -3811,7 +4722,7 @@ KUZU_API inline timestamp_tz_t Value::getValue() const {
  */
 template<>
 KUZU_API inline interval_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::INTERVAL);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::INTERVAL);
     return val.intervalVal;
 }
 
@@ -3820,7 +4731,7 @@ KUZU_API inline interval_t Value::getValue() const {
  */
 template<>
 KUZU_API inline internalID_t Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::INTERNAL_ID);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::INTERNAL_ID);
     return val.internalIDVal;
 }
 
@@ -3829,9 +4740,9 @@ KUZU_API inline internalID_t Value::getValue() const {
  */
 template<>
 KUZU_API inline std::string Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::STRING ||
-              dataType->getLogicalTypeID() == LogicalTypeID::BLOB ||
-              dataType->getLogicalTypeID() == LogicalTypeID::UUID);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::STRING ||
+              dataType.getLogicalTypeID() == LogicalTypeID::BLOB ||
+              dataType.getLogicalTypeID() == LogicalTypeID::UUID);
     return strVal;
 }
 
@@ -3840,7 +4751,7 @@ KUZU_API inline std::string Value::getValue() const {
  */
 template<>
 KUZU_API inline uint8_t* Value::getValue() const {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::POINTER);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::POINTER);
     return val.pointer;
 }
 
@@ -3849,7 +4760,7 @@ KUZU_API inline uint8_t* Value::getValue() const {
  */
 template<>
 KUZU_API inline bool& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::BOOL);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::BOOL);
     return val.booleanVal;
 }
 
@@ -3858,7 +4769,7 @@ KUZU_API inline bool& Value::getValueReference() {
  */
 template<>
 KUZU_API inline int8_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::INT8);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::INT8);
     return val.int8Val;
 }
 
@@ -3867,7 +4778,7 @@ KUZU_API inline int8_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline int16_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::INT16);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::INT16);
     return val.int16Val;
 }
 
@@ -3876,7 +4787,7 @@ KUZU_API inline int16_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline int32_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::INT32);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::INT32);
     return val.int32Val;
 }
 
@@ -3885,7 +4796,7 @@ KUZU_API inline int32_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline int64_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::INT64);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::INT64);
     return val.int64Val;
 }
 
@@ -3894,7 +4805,7 @@ KUZU_API inline int64_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline uint8_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::UINT8);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::UINT8);
     return val.uint8Val;
 }
 
@@ -3903,7 +4814,7 @@ KUZU_API inline uint8_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline uint16_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::UINT16);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::UINT16);
     return val.uint16Val;
 }
 
@@ -3912,7 +4823,7 @@ KUZU_API inline uint16_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline uint32_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::UINT32);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::UINT32);
     return val.uint32Val;
 }
 
@@ -3921,7 +4832,7 @@ KUZU_API inline uint32_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline uint64_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::UINT64);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::UINT64);
     return val.uint64Val;
 }
 
@@ -3930,7 +4841,7 @@ KUZU_API inline uint64_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline int128_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::INT128);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::INT128);
     return val.int128Val;
 }
 
@@ -3939,7 +4850,7 @@ KUZU_API inline int128_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline float& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::FLOAT);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::FLOAT);
     return val.floatVal;
 }
 
@@ -3948,7 +4859,7 @@ KUZU_API inline float& Value::getValueReference() {
  */
 template<>
 KUZU_API inline double& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::DOUBLE);
+    KU_ASSERT(dataType.getPhysicalType() == PhysicalTypeID::DOUBLE);
     return val.doubleVal;
 }
 
@@ -3957,7 +4868,7 @@ KUZU_API inline double& Value::getValueReference() {
  */
 template<>
 KUZU_API inline date_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::DATE);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::DATE);
     return *reinterpret_cast<date_t*>(&val.int32Val);
 }
 
@@ -3966,7 +4877,7 @@ KUZU_API inline date_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline timestamp_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::TIMESTAMP);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::TIMESTAMP);
     return *reinterpret_cast<timestamp_t*>(&val.int64Val);
 }
 
@@ -3975,7 +4886,7 @@ KUZU_API inline timestamp_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline timestamp_ms_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::TIMESTAMP_MS);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::TIMESTAMP_MS);
     return *reinterpret_cast<timestamp_ms_t*>(&val.int64Val);
 }
 
@@ -3984,7 +4895,7 @@ KUZU_API inline timestamp_ms_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline timestamp_ns_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::TIMESTAMP_NS);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::TIMESTAMP_NS);
     return *reinterpret_cast<timestamp_ns_t*>(&val.int64Val);
 }
 
@@ -3993,7 +4904,7 @@ KUZU_API inline timestamp_ns_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline timestamp_sec_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::TIMESTAMP_SEC);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::TIMESTAMP_SEC);
     return *reinterpret_cast<timestamp_sec_t*>(&val.int64Val);
 }
 
@@ -4002,7 +4913,7 @@ KUZU_API inline timestamp_sec_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline timestamp_tz_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::TIMESTAMP_TZ);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::TIMESTAMP_TZ);
     return *reinterpret_cast<timestamp_tz_t*>(&val.int64Val);
 }
 
@@ -4011,7 +4922,7 @@ KUZU_API inline timestamp_tz_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline interval_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::INTERVAL);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::INTERVAL);
     return val.intervalVal;
 }
 
@@ -4020,7 +4931,7 @@ KUZU_API inline interval_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline nodeID_t& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::INTERNAL_ID);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::INTERNAL_ID);
     return val.internalIDVal;
 }
 
@@ -4029,7 +4940,7 @@ KUZU_API inline nodeID_t& Value::getValueReference() {
  */
 template<>
 KUZU_API inline std::string& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::STRING);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::STRING);
     return strVal;
 }
 
@@ -4038,7 +4949,7 @@ KUZU_API inline std::string& Value::getValueReference() {
  */
 template<>
 KUZU_API inline uint8_t*& Value::getValueReference() {
-    KU_ASSERT(dataType->getLogicalTypeID() == LogicalTypeID::POINTER);
+    KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::POINTER);
     return val.pointer;
 }
 
@@ -4205,6 +5116,117 @@ KUZU_API inline Value Value::createValue(uint8_t* val) {
 
 
 namespace kuzu {
+
+namespace main {
+class ClientContext;
+}
+
+namespace function {
+
+struct KUZU_API FunctionBindData {
+    std::vector<common::LogicalType> paramTypes;
+    common::LogicalType resultType;
+    // TODO: the following two fields should be moved to FunctionLocalState.
+    main::ClientContext* clientContext;
+    int64_t count;
+
+    explicit FunctionBindData(common::LogicalType dataType)
+        : resultType{std::move(dataType)}, clientContext{nullptr}, count{1} {}
+    FunctionBindData(std::vector<common::LogicalType> paramTypes, common::LogicalType resultType)
+        : paramTypes{std::move(paramTypes)}, resultType{std::move(resultType)},
+          clientContext{nullptr}, count{1} {}
+    DELETE_COPY_AND_MOVE(FunctionBindData);
+    virtual ~FunctionBindData() = default;
+
+    static std::unique_ptr<FunctionBindData> getSimpleBindData(
+        const binder::expression_vector& params, const common::LogicalType& resultType);
+
+    template<class TARGET>
+    TARGET& cast() {
+        return common::ku_dynamic_cast<TARGET&>(*this);
+    }
+
+    virtual std::unique_ptr<FunctionBindData> copy() const {
+        return std::make_unique<FunctionBindData>(common::LogicalType::copy(paramTypes),
+            resultType.copy());
+    }
+};
+
+struct Function;
+using function_set = std::vector<std::unique_ptr<Function>>;
+
+struct ScalarBindFuncInput {
+    const binder::expression_vector& arguments;
+    Function* definition;
+    main::ClientContext* context;
+    std::vector<std::string> optionalArguments;
+
+    ScalarBindFuncInput(const binder::expression_vector& arguments, Function* definition,
+        main::ClientContext* context, std::vector<std::string> optionalArguments)
+        : arguments{arguments}, definition{definition}, context{context},
+          optionalArguments{std::move(optionalArguments)} {}
+};
+
+using scalar_bind_func =
+    std::function<std::unique_ptr<FunctionBindData>(const ScalarBindFuncInput& bindInput)>;
+
+struct KUZU_API Function {
+    std::string name;
+    std::vector<common::LogicalTypeID> parameterTypeIDs;
+    // Currently we only one variable-length function which is list creation. The expectation is
+    // that all parameters must have the same type as parameterTypes[0].
+    // For variable length function. A
+    bool isVarLength = false;
+    bool isListLambda = false;
+    bool isReadOnly = true;
+
+    Function() : isVarLength{false}, isListLambda{false}, isReadOnly{true} {};
+    Function(std::string name, std::vector<common::LogicalTypeID> parameterTypeIDs)
+        : name{std::move(name)}, parameterTypeIDs{std::move(parameterTypeIDs)}, isVarLength{false},
+          isListLambda{false} {}
+    Function(const Function&) = default;
+
+    virtual ~Function() = default;
+
+    virtual std::string signatureToString() const {
+        return common::LogicalTypeUtils::toString(parameterTypeIDs);
+    }
+
+    template<class TARGET>
+    const TARGET* constPtrCast() const {
+        return common::ku_dynamic_cast<const TARGET*>(this);
+    }
+    template<class TARGET>
+    TARGET* ptrCast() {
+        return common::ku_dynamic_cast<TARGET*>(this);
+    }
+};
+
+struct ScalarOrAggregateFunction : Function {
+    common::LogicalTypeID returnTypeID = common::LogicalTypeID::ANY;
+    scalar_bind_func bindFunc = nullptr;
+
+    ScalarOrAggregateFunction() : Function{} {}
+    ScalarOrAggregateFunction(std::string name, std::vector<common::LogicalTypeID> parameterTypeIDs,
+        common::LogicalTypeID returnTypeID)
+        : Function{std::move(name), std::move(parameterTypeIDs)}, returnTypeID{returnTypeID} {}
+    ScalarOrAggregateFunction(std::string name, std::vector<common::LogicalTypeID> parameterTypeIDs,
+        common::LogicalTypeID returnTypeID, scalar_bind_func bindFunc)
+        : Function{std::move(name), std::move(parameterTypeIDs)}, returnTypeID{returnTypeID},
+          bindFunc{std::move(bindFunc)} {}
+
+    std::string signatureToString() const override {
+        auto result = Function::signatureToString();
+        result += " -> " + common::LogicalTypeUtils::toString(returnTypeID);
+        return result;
+    }
+};
+
+} // namespace function
+} // namespace kuzu
+
+
+namespace kuzu {
 namespace common {
 
 // F stands for Factorization
@@ -4213,213 +5235,270 @@ enum class FStateType : uint8_t {
     UNFLAT = 1,
 };
 
-class DataChunkState {
+class KUZU_API DataChunkState {
 public:
-    DataChunkState() : DataChunkState(DEFAULT_VECTOR_CAPACITY) {}
-    explicit DataChunkState(uint64_t capacity) : fStateType{FStateType::UNFLAT}, originalSize{0} {
+    DataChunkState();
+    explicit DataChunkState(sel_t capacity) : fStateType{FStateType::UNFLAT} {
         selVector = std::make_shared<SelectionVector>(capacity);
     }
 
     // returns a dataChunkState for vectors holding a single value.
     static std::shared_ptr<DataChunkState> getSingleValueDataChunkState();
 
-    inline void initOriginalAndSelectedSize(uint64_t size) {
-        originalSize = size;
-        selVector->selectedSize = size;
+    void initOriginalAndSelectedSize(uint64_t size) { selVector->setSelSize(size); }
+    bool isFlat() const { return fStateType == FStateType::FLAT; }
+    void setToFlat() { fStateType = FStateType::FLAT; }
+    void setToUnflat() { fStateType = FStateType::UNFLAT; }
+
+    const SelectionVector& getSelVector() const { return *selVector; }
+    sel_t getSelSize() const { return selVector->getSelSize(); }
+    SelectionVector& getSelVectorUnsafe() { return *selVector; }
+    std::shared_ptr<SelectionVector> getSelVectorShared() { return selVector; }
+    void setSelVector(std::shared_ptr<SelectionVector> selVector_) {
+        this->selVector = std::move(selVector_);
     }
-    inline void setOriginalSize(uint64_t size) { originalSize = size; }
-    inline uint64_t getOriginalSize() const { return originalSize; }
-    inline bool isFlat() const { return fStateType == FStateType::FLAT; }
-    inline void setToFlat() { fStateType = FStateType::FLAT; }
-    inline void setToUnflat() { fStateType = FStateType::UNFLAT; }
-
-    inline uint64_t getNumSelectedValues() const { return selVector->selectedSize; }
-
-    void slice(offset_t offset);
-
-public:
-    std::shared_ptr<SelectionVector> selVector;
 
 private:
+    std::shared_ptr<SelectionVector> selVector;
+    // TODO: We should get rid of `fStateType` and merge DataChunkState with SelectionVector.
     FStateType fStateType;
-    // We need to keep track of originalSize of DataChunks to perform consistent scans of vectors
-    // or lists. This is because all the vectors in a data chunk has to be the same length as they
-    // share the same selectedPositions array.Therefore, if there is a scan after a filter on the
-    // data chunk, the selectedSize of selVector might decrease, so the scan cannot know how much it
-    // has to scan to generate a vector that is consistent with the rest of the vectors in the
-    // data chunk.
-    uint64_t originalSize;
 };
 
 } // namespace common
 } // namespace kuzu
 
-#include <iterator>
+#include <mutex>
+
+
+namespace kuzu {
+
+namespace main {
+class ClientContext;
+}
+
+namespace transaction {
+
+/**
+ * If the connection is in AUTO_COMMIT mode, any query over the connection will be wrapped around
+ * a transaction and committed (even if the query is READ_ONLY).
+ * If the connection is in MANUAL transaction mode, which happens only if an application
+ * manually begins a transaction (see below), then an application has to manually commit or
+ * rollback the transaction by calling commit() or rollback().
+ *
+ * AUTO_COMMIT is the default mode when a Connection is created. If an application calls
+ * begin[ReadOnly/Write]Transaction at any point, the mode switches to MANUAL. This creates
+ * an "active transaction" in the connection. When a connection is in MANUAL mode and the
+ * active transaction is rolled back or committed, then the active transaction is removed (so
+ * the connection no longer has an active transaction), and the mode automatically switches
+ * back to AUTO_COMMIT.
+ * Note: When a Connection object is deconstructed, if the connection has an active (manual)
+ * transaction, then the active transaction is rolled back.
+ */
+enum class TransactionMode : uint8_t { AUTO = 0, MANUAL = 1 };
+
+class KUZU_API TransactionContext {
+public:
+    explicit TransactionContext(main::ClientContext& clientContext);
+    ~TransactionContext();
+
+    bool isAutoTransaction() const { return mode == TransactionMode::AUTO; }
+
+    void beginReadTransaction();
+    void beginWriteTransaction();
+    void beginAutoTransaction(bool readOnlyStatement);
+    void beginRecoveryTransaction();
+    void validateManualTransaction(bool readOnlyStatement) const;
+
+    void commit();
+    void rollback();
+
+    TransactionMode getTransactionMode() const { return mode; }
+    bool hasActiveTransaction() const { return activeTransaction != nullptr; }
+    Transaction* getActiveTransaction() const { return activeTransaction; }
+
+    void clearTransaction();
+
+private:
+    void beginTransactionInternal(TransactionType transactionType);
+
+private:
+    std::mutex mtx;
+    main::ClientContext& clientContext;
+    TransactionMode mode;
+    Transaction* activeTransaction;
+};
+
+} // namespace transaction
+} // namespace kuzu
+
+#include <string>
 #include <vector>
 
 
 namespace kuzu {
 namespace common {
 
-struct BufferBlock {
-public:
-    explicit BufferBlock(std::unique_ptr<storage::MemoryBuffer> block)
-        : size{block->allocator->getPageSize()}, currentOffset{0}, block{std::move(block)} {}
-
-public:
-    uint64_t size;
-    uint64_t currentOffset;
-    std::unique_ptr<storage::MemoryBuffer> block;
-
-    inline void resetCurrentOffset() { currentOffset = 0; }
+enum class FileType : uint8_t {
+    UNKNOWN = 0,
+    CSV = 1,
+    PARQUET = 2,
+    NPY = 3,
 };
 
-class InMemOverflowBuffer {
-
-public:
-    explicit InMemOverflowBuffer(storage::MemoryManager* memoryManager)
-        : memoryManager{memoryManager}, currentBlock{nullptr} {};
-
-    uint8_t* allocateSpace(uint64_t size);
-
-    inline void merge(InMemOverflowBuffer& other) {
-        move(begin(other.blocks), end(other.blocks), back_inserter(blocks));
-        // We clear the other InMemOverflowBuffer's block because when it is deconstructed,
-        // InMemOverflowBuffer's deconstructed tries to free these pages by calling
-        // memoryManager->freeBlock, but it should not because this InMemOverflowBuffer still
-        // needs them.
-        other.blocks.clear();
-        currentBlock = other.currentBlock;
-    }
-
-    // Releases all memory accumulated for string overflows so far and re-initializes its state to
-    // an empty buffer. If there is a large string that used point to any of these overflow buffers
-    // they will error.
-    inline void resetBuffer() {
-        if (!blocks.empty()) {
-            auto firstBlock = std::move(blocks[0]);
-            blocks.clear();
-            firstBlock->resetCurrentOffset();
-            blocks.push_back(std::move(firstBlock));
-        }
-        if (!blocks.empty()) {
-            currentBlock = blocks[0].get();
-        }
-    }
-
-private:
-    inline bool requireNewBlock(uint64_t sizeToAllocate) {
-        if (sizeToAllocate > BufferPoolConstants::PAGE_256KB_SIZE) {
-            throw RuntimeException("Required size " + std::to_string(sizeToAllocate) +
-                                   " is greater than the single block size of " +
-                                   std::to_string(BufferPoolConstants::PAGE_256KB_SIZE) + ".");
-        }
-        return currentBlock == nullptr ||
-               (currentBlock->currentOffset + sizeToAllocate) > currentBlock->size;
-    }
-
-    void allocateNewBlock();
-
-private:
-    std::vector<std::unique_ptr<BufferBlock>> blocks;
-    storage::MemoryManager* memoryManager;
-    BufferBlock* currentBlock;
+struct FileTypeInfo {
+    FileType fileType = FileType::UNKNOWN;
+    std::string fileTypeStr;
 };
 
-} // namespace common
-} // namespace kuzu
+struct FileTypeUtils {
+    static FileType getFileTypeFromExtension(std::string_view extension);
+    static std::string toString(FileType fileType);
+    static FileType fromString(std::string fileType);
+};
 
+struct FileScanInfo {
+    static constexpr const char* FILE_FORMAT_OPTION_NAME = "FILE_FORMAT";
 
-namespace kuzu {
-namespace common {
-class Value;
-class RdfVariant {
-public:
-    /**
-     * @brief Get the logical type id of the rdf variant.
-     * @param rdfVariant the rdf variant.
-     * @return the logical type id.
-     */
-    KUZU_API static LogicalTypeID getLogicalTypeID(const Value* rdfVariant);
+    FileTypeInfo fileTypeInfo;
+    std::vector<std::string> filePaths;
+    case_insensitive_map_t<Value> options;
 
-    /**
-     * @brief Get the value of the rdf variant.
-     * @tparam T the type of the value.
-     * @param rdfVariant the rdf variant.
-     * @return the value.
-     */
+    FileScanInfo() : fileTypeInfo{FileType::UNKNOWN, ""} {}
+    FileScanInfo(FileTypeInfo fileTypeInfo, std::vector<std::string> filePaths)
+        : fileTypeInfo{std::move(fileTypeInfo)}, filePaths{std::move(filePaths)} {}
+    EXPLICIT_COPY_DEFAULT_MOVE(FileScanInfo);
+
+    uint32_t getNumFiles() const { return filePaths.size(); }
+    std::string getFilePath(idx_t fileIdx) const {
+        KU_ASSERT(fileIdx < getNumFiles());
+        return filePaths[fileIdx];
+    }
+
     template<typename T>
-    T static getValue(const Value* rdfVariant) {
-        auto blobData = NestedVal::getChildVal(rdfVariant, 1)->strVal.data();
-        return Blob::getValue<T>(blobData);
+    T getOption(std::string optionName, T defaultValue) const {
+        const auto optionIt = options.find(optionName);
+        if (optionIt != options.end()) {
+            return optionIt->second.getValue<T>();
+        } else {
+            return defaultValue;
+        }
     }
+
+private:
+    FileScanInfo(const FileScanInfo& other)
+        : fileTypeInfo{other.fileTypeInfo}, filePaths{other.filePaths}, options{other.options} {}
 };
 
-/**
- * @brief Specialization for string.
- * @param rdfVariant the rdf variant.
- * @return the string value.
- */
-template<>
-KUZU_API inline std::string RdfVariant::getValue<std::string>(const Value* rdfVariant) {
-    return NestedVal::getChildVal(rdfVariant, 1)->strVal;
-}
 } // namespace common
 } // namespace kuzu
 
-#include <sstream>
+#include <string>
+#include <variant>
+#include <vector>
 
 
 namespace kuzu {
 namespace common {
+class ValueVector;
+}
+namespace storage {
+class ColumnChunkData;
+}
 
-struct CSVOption {
-    // TODO(Xiyang): Add newline character option and delimiter can be a string.
-    char escapeChar;
-    char delimiter;
-    char quoteChar;
-    bool hasHeader;
+namespace processor {
 
-    CSVOption()
-        : escapeChar{CopyConstants::DEFAULT_CSV_ESCAPE_CHAR},
-          delimiter{CopyConstants::DEFAULT_CSV_DELIMITER},
-          quoteChar{CopyConstants::DEFAULT_CSV_QUOTE_CHAR},
-          hasHeader{CopyConstants::DEFAULT_CSV_HAS_HEADER} {}
-    EXPLICIT_COPY_DEFAULT_MOVE(CSVOption);
+template<typename T>
+concept DataSource =
+    std::same_as<storage::ColumnChunkData, T> || std::same_as<common::ValueVector, T>;
 
-    std::string toCypher() const {
-        std::stringstream ss;
-        ss << " (escape = '\\" << escapeChar << "' , delim = '" << delimiter << "' , quote = '\\"
-           << quoteChar << "', header=";
-        if (hasHeader) {
-            ss << "true);";
-        } else {
-            ss << "false);";
-        }
-        return ss.str();
-    }
+struct KUZU_API WarningSourceData {
+    // we should stick to integral types here as each value essentially adds a column to the output
+    // when reading from a file
+    using DataType = std::variant<uint64_t, uint32_t>;
 
-private:
-    CSVOption(const CSVOption& other)
-        : escapeChar{other.escapeChar}, delimiter{other.delimiter}, quoteChar{other.quoteChar},
-          hasHeader{other.hasHeader} {}
+    static constexpr size_t BLOCK_IDX_IDX = 0;
+    static constexpr size_t OFFSET_IN_BLOCK_IDX = 1;
+    static constexpr size_t NUM_BLOCK_VALUES = 2;
+
+    WarningSourceData() : WarningSourceData(0) {}
+    explicit WarningSourceData(uint64_t numSourceSpecificValues);
+
+    template<std::integral... Types>
+    void dumpTo(uint64_t& blockIdx, uint32_t& offsetInBlock, Types&... vars) const;
+
+    template<std::integral... Types>
+    static WarningSourceData constructFrom(uint64_t blockIdx, uint32_t offsetInBlock,
+        Types... newValues);
+
+    uint64_t getBlockIdx() const;
+    uint32_t getOffsetInBlock() const;
+
+    template<DataSource T>
+    static WarningSourceData constructFromData(const std::vector<T*>& chunks, common::idx_t pos);
+
+    std::array<DataType, common::CopyConstants::MAX_NUM_WARNING_DATA_COLUMNS> values;
+    uint64_t numValues;
 };
 
-struct CSVReaderConfig {
-    CSVOption option;
-    bool parallel;
+struct LineContext {
+    uint64_t startByteOffset;
+    uint64_t endByteOffset;
 
-    CSVReaderConfig() : option{}, parallel{CopyConstants::DEFAULT_CSV_PARALLEL} {}
-    EXPLICIT_COPY_DEFAULT_MOVE(CSVReaderConfig);
+    bool isCompleteLine;
 
-    static CSVReaderConfig construct(const std::unordered_map<std::string, common::Value>& options);
-
-private:
-    CSVReaderConfig(const CSVReaderConfig& other)
-        : option{other.option.copy()}, parallel{other.parallel} {}
+    void setNewLine(uint64_t start);
+    void setEndOfLine(uint64_t end);
 };
 
-} // namespace common
+// If parsing in parallel during parsing we may not be able to determine line numbers
+// Thus we have additional fields that can be used to determine line numbers + reconstruct lines
+// After parsing this will be used to populate a PopulatedCopyFromError instance
+struct KUZU_API CopyFromFileError {
+    CopyFromFileError(std::string message, WarningSourceData warningData, bool completedLine = true,
+        bool mustThrow = false);
+
+    std::string message;
+    bool completedLine;
+    WarningSourceData warningData;
+
+    bool mustThrow;
+
+    bool operator<(const CopyFromFileError& o) const;
+};
+
+struct PopulatedCopyFromError {
+    std::string message;
+    std::string filePath;
+    std::string skippedLineOrRecord;
+    uint64_t lineNumber;
+};
+
+template<std::integral... Types>
+void WarningSourceData::dumpTo(uint64_t& blockIdx, uint32_t& offsetInBlock, Types&... vars) const {
+    static_assert(sizeof...(Types) + NUM_BLOCK_VALUES <= std::tuple_size_v<decltype(values)>);
+    KU_ASSERT(sizeof...(Types) + NUM_BLOCK_VALUES == numValues);
+    common::TypeUtils::paramPackForEach(
+        [this](auto idx, auto& value) {
+            value = std::get<std::decay_t<decltype(value)>>(values[idx]);
+        },
+        blockIdx, offsetInBlock, vars...);
+}
+
+template<std::integral... Types>
+WarningSourceData WarningSourceData::constructFrom(uint64_t blockIdx, uint32_t offsetInBlock,
+    Types... newValues) {
+    static_assert(sizeof...(Types) + NUM_BLOCK_VALUES <= std::tuple_size_v<decltype(values)>,
+        "For performance reasons the number of warning metadata columns has a "
+        "statically-defined limit, modify "
+        "'common::CopyConstants::WARNING_DATA_MAX_NUM_COLUMNS' if you wish to increase it.");
+
+    WarningSourceData ret{sizeof...(Types) + NUM_BLOCK_VALUES};
+    common::TypeUtils::paramPackForEach([&ret](auto idx, auto value) { ret.values[idx] = value; },
+        blockIdx, offsetInBlock, newValues...);
+    return ret;
+}
+
+} // namespace processor
 } // namespace kuzu
 
 #include <cstdint>
@@ -4468,204 +5547,665 @@ private:
 } // namespace processor
 } // namespace kuzu
 
+#include <string>
 
-namespace arrow {
-class ChunkedArray;
-} // namespace arrow
+
+namespace kuzu {
+namespace common {
+class Value;
+enum class LogicalTypeID : uint8_t;
+} // namespace common
+
+namespace main {
+
+class ClientContext;
+struct SystemConfig;
+
+typedef void (*set_context)(ClientContext* context, const common::Value& parameter);
+typedef common::Value (*get_setting)(const ClientContext* context);
+
+enum class OptionType : uint8_t { CONFIGURATION = 0, EXTENSION = 1 };
+
+struct Option {
+    std::string name;
+    common::LogicalTypeID parameterType;
+    OptionType optionType;
+    bool isConfidential;
+
+    Option(std::string name, common::LogicalTypeID parameterType, OptionType optionType,
+        bool isConfidential)
+        : name{std::move(name)}, parameterType{parameterType}, optionType{optionType},
+          isConfidential{isConfidential} {}
+
+    virtual ~Option() = default;
+};
+
+struct ConfigurationOption final : Option {
+    set_context setContext;
+    get_setting getSetting;
+
+    ConfigurationOption(std::string name, common::LogicalTypeID parameterType,
+        set_context setContext, get_setting getSetting)
+        : Option{std::move(name), parameterType, OptionType::CONFIGURATION,
+              false /* isConfidential */},
+          setContext{setContext}, getSetting{getSetting} {}
+};
+
+struct ExtensionOption final : Option {
+    common::Value defaultValue;
+
+    ExtensionOption(std::string name, common::LogicalTypeID parameterType,
+        common::Value defaultValue, bool isConfidential)
+        : Option{std::move(name), parameterType, OptionType::EXTENSION, isConfidential},
+          defaultValue{std::move(defaultValue)} {}
+};
+
+struct DBConfig {
+    uint64_t bufferPoolSize;
+    uint64_t maxNumThreads;
+    bool enableCompression;
+    bool readOnly;
+    uint64_t maxDBSize;
+    bool enableMultiWrites;
+    bool autoCheckpoint;
+    uint64_t checkpointThreshold;
+    bool forceCheckpointOnClose;
+    bool enableSpillingToDisk;
+#if defined(__APPLE__)
+    uint32_t threadQos;
+#endif
+
+    explicit DBConfig(const SystemConfig& systemConfig);
+
+    static ConfigurationOption* getOptionByName(const std::string& optionName);
+    KUZU_API static bool isDBPathInMemory(const std::string& dbPath);
+};
+
+} // namespace main
+} // namespace kuzu
+
 
 namespace kuzu {
 namespace common {
 
-class ValueVector;
+struct CSVOption {
+    // TODO(Xiyang): Add newline character option and delimiter can be a string.
+    char escapeChar;
+    char delimiter;
+    char quoteChar;
+    bool hasHeader;
+    uint64_t skipNum;
+    uint64_t sampleSize;
+    bool allowUnbracedList;
+    bool ignoreErrors;
 
-// AuxiliaryBuffer holds data which is only used by the targeting dataType.
-class AuxiliaryBuffer {
-public:
-    virtual ~AuxiliaryBuffer() = default;
-};
+    bool autoDetection;
+    // These fields aim to identify whether the options are set by user, or set by default.
+    bool setEscape;
+    bool setDelim;
+    bool setQuote;
+    bool setHeader;
+    std::vector<std::string> nullStrings;
 
-class StringAuxiliaryBuffer : public AuxiliaryBuffer {
-public:
-    explicit StringAuxiliaryBuffer(storage::MemoryManager* memoryManager) {
-        inMemOverflowBuffer = std::make_unique<InMemOverflowBuffer>(memoryManager);
+    CSVOption()
+        : escapeChar{CopyConstants::DEFAULT_CSV_ESCAPE_CHAR},
+          delimiter{CopyConstants::DEFAULT_CSV_DELIMITER},
+          quoteChar{CopyConstants::DEFAULT_CSV_QUOTE_CHAR},
+          hasHeader{CopyConstants::DEFAULT_CSV_HAS_HEADER},
+          skipNum{CopyConstants::DEFAULT_CSV_SKIP_NUM},
+          sampleSize{CopyConstants::DEFAULT_CSV_TYPE_DEDUCTION_SAMPLE_SIZE},
+          allowUnbracedList{CopyConstants::DEFAULT_CSV_ALLOW_UNBRACED_LIST},
+          ignoreErrors(CopyConstants::DEFAULT_IGNORE_ERRORS),
+          autoDetection{CopyConstants::DEFAULT_CSV_AUTO_DETECT},
+          setEscape{CopyConstants::DEFAULT_CSV_SET_DIALECT},
+          setDelim{CopyConstants::DEFAULT_CSV_SET_DIALECT},
+          setQuote{CopyConstants::DEFAULT_CSV_SET_DIALECT},
+          setHeader{CopyConstants::DEFAULT_CSV_SET_DIALECT},
+          nullStrings{CopyConstants::DEFAULT_CSV_NULL_STRINGS[0]} {}
+
+    EXPLICIT_COPY_DEFAULT_MOVE(CSVOption);
+
+    // TODO: COPY FROM and COPY TO should support transform special options, like '\'.
+    std::unordered_map<std::string, std::string> toOptionsMap(const bool& parallel) const {
+        std::unordered_map<std::string, std::string> result;
+        result["parallel"] = parallel ? "true" : "false";
+        if (setHeader) {
+            result["header"] = hasHeader ? "true" : "false";
+        }
+        if (setEscape) {
+            result["escape"] = stringFormat("escape='\\{}'", escapeChar);
+        }
+        if (setDelim) {
+            result["delim"] = stringFormat("delim='{}'", delimiter);
+        }
+        if (setQuote) {
+            result["quote"] = stringFormat("quote='\\{}'", quoteChar);
+        }
+        if (autoDetection != CopyConstants::DEFAULT_CSV_AUTO_DETECT) {
+            result["auto_detect"] = autoDetection ? "true" : "false";
+        }
+        return result;
     }
 
-    inline InMemOverflowBuffer* getOverflowBuffer() const { return inMemOverflowBuffer.get(); }
-    inline uint8_t* allocateOverflow(uint64_t size) {
-        return inMemOverflowBuffer->allocateSpace(size);
-    }
-    inline void resetOverflowBuffer() const { inMemOverflowBuffer->resetBuffer(); }
-
-private:
-    std::unique_ptr<InMemOverflowBuffer> inMemOverflowBuffer;
-};
-
-class StructAuxiliaryBuffer : public AuxiliaryBuffer {
-public:
-    StructAuxiliaryBuffer(const LogicalType& type, storage::MemoryManager* memoryManager);
-
-    inline void referenceChildVector(
-        vector_idx_t idx, std::shared_ptr<ValueVector> vectorToReference) {
-        childrenVectors[idx] = std::move(vectorToReference);
-    }
-    inline const std::vector<std::shared_ptr<ValueVector>>& getFieldVectors() const {
-        return childrenVectors;
+    static std::string toCypher(const std::unordered_map<std::string, std::string>& options) {
+        if (options.empty()) {
+            return "";
+        }
+        std::string result = "";
+        for (const auto& [key, value] : options) {
+            if (!result.empty()) {
+                result += ", ";
+            }
+            result += key + "=" + value;
+        }
+        return "(" + result + ")";
     }
 
-private:
-    std::vector<std::shared_ptr<ValueVector>> childrenVectors;
+    // Explicit copy constructor
+    CSVOption(const CSVOption& other)
+        : escapeChar{other.escapeChar}, delimiter{other.delimiter}, quoteChar{other.quoteChar},
+          hasHeader{other.hasHeader}, skipNum{other.skipNum},
+          sampleSize{other.sampleSize == 0 ?
+                         CopyConstants::DEFAULT_CSV_TYPE_DEDUCTION_SAMPLE_SIZE :
+                         other.sampleSize}, // Set to DEFAULT_CSV_TYPE_DEDUCTION_SAMPLE_SIZE if
+                                            // sampleSize is 0
+          allowUnbracedList{other.allowUnbracedList}, ignoreErrors{other.ignoreErrors},
+          autoDetection{other.autoDetection}, setEscape{other.setEscape}, setDelim{other.setDelim},
+          setQuote{other.setQuote}, setHeader{other.setHeader}, nullStrings{other.nullStrings} {}
 };
 
-class ArrowColumnAuxiliaryBuffer : public AuxiliaryBuffer {
-    friend class ArrowColumnVector;
+struct CSVReaderConfig {
+    CSVOption option;
+    bool parallel;
+
+    CSVReaderConfig() : option{}, parallel{CopyConstants::DEFAULT_CSV_PARALLEL} {}
+    EXPLICIT_COPY_DEFAULT_MOVE(CSVReaderConfig);
+
+    static CSVReaderConfig construct(const case_insensitive_map_t<Value>& options);
 
 private:
-    std::shared_ptr<arrow::ChunkedArray> column;
-};
-
-// ListVector layout:
-// To store a list value in the valueVector, we could use two separate vectors.
-// 1. A vector(called offset vector) for the list offsets and length(called list_entry_t): This
-// vector contains the starting indices and length for each list within the data vector.
-// 2. A data vector(called dataVector) to store the actual list elements: This vector holds the
-// actual elements of the lists in a flat, continuous storage. Each list would be represented as a
-// contiguous subsequence of elements in this vector.
-class ListAuxiliaryBuffer : public AuxiliaryBuffer {
-    friend class ListVector;
-
-public:
-    ListAuxiliaryBuffer(const LogicalType& dataVectorType, storage::MemoryManager* memoryManager);
-
-    inline void setDataVector(std::shared_ptr<ValueVector> vector) {
-        dataVector = std::move(vector);
-    }
-    inline ValueVector* getDataVector() const { return dataVector.get(); }
-    inline std::shared_ptr<ValueVector> getSharedDataVector() const { return dataVector; }
-
-    list_entry_t addList(uint64_t listSize);
-
-    inline uint64_t getSize() const { return size; }
-
-    inline void resetSize() { size = 0; }
-
-    void resize(uint64_t numValues);
-
-private:
-    void resizeDataVector(ValueVector* dataVector);
-
-    void resizeStructDataVector(ValueVector* dataVector);
-
-private:
-    uint64_t capacity;
-    uint64_t size;
-    std::shared_ptr<ValueVector> dataVector;
-};
-
-class AuxiliaryBufferFactory {
-public:
-    static std::unique_ptr<AuxiliaryBuffer> getAuxiliaryBuffer(
-        LogicalType& type, storage::MemoryManager* memoryManager);
+    CSVReaderConfig(const CSVReaderConfig& other)
+        : option{other.option.copy()}, parallel{other.parallel} {}
 };
 
 } // namespace common
 } // namespace kuzu
 
+#include <optional>
+#include <utility>
+
 
 namespace kuzu {
-namespace function {
+namespace common {
 
-struct FunctionBindData {
-    std::unique_ptr<common::LogicalType> resultType;
+class Value;
 
-    explicit FunctionBindData(std::unique_ptr<common::LogicalType> dataType)
-        : resultType{std::move(dataType)} {}
+//! A Vector represents values of the same data type.
+//! The capacity of a ValueVector is either 1 (sequence) or DEFAULT_VECTOR_CAPACITY.
+class KUZU_API ValueVector {
+    friend class ListVector;
+    friend class ListAuxiliaryBuffer;
+    friend class StructVector;
+    friend class StringVector;
+    friend class ArrowColumnVector;
 
-    virtual ~FunctionBindData() = default;
-};
-
-struct CastFunctionBindData : public FunctionBindData {
-    common::CSVReaderConfig csvConfig;
-    uint64_t numOfEntries;
-
-    explicit CastFunctionBindData(std::unique_ptr<common::LogicalType> dataType)
-        : FunctionBindData{std::move(dataType)} {}
-};
-
-struct Function;
-using scalar_bind_func = std::function<std::unique_ptr<FunctionBindData>(
-    const binder::expression_vector&, Function* definition)>;
-
-enum class FunctionType : uint8_t { SCALAR, AGGREGATE, TABLE };
-
-struct Function {
-    Function(
-        FunctionType type, std::string name, std::vector<common::LogicalTypeID> parameterTypeIDs)
-        : type{type}, name{std::move(name)}, parameterTypeIDs{std::move(parameterTypeIDs)} {}
-
-    virtual ~Function() = default;
-
-    virtual std::string signatureToString() const = 0;
-
-    virtual std::unique_ptr<Function> copy() const = 0;
-
-    // TODO(Ziyi): Move to catalog entry once we have implemented the catalog entry.
-    FunctionType type;
-    std::string name;
-    std::vector<common::LogicalTypeID> parameterTypeIDs;
-};
-
-struct BaseScalarFunction : public Function {
-    BaseScalarFunction(FunctionType type, std::string name,
-        std::vector<common::LogicalTypeID> parameterTypeIDs, common::LogicalTypeID returnTypeID,
-        scalar_bind_func bindFunc)
-        : Function{type, std::move(name), std::move(parameterTypeIDs)},
-          returnTypeID{returnTypeID}, bindFunc{std::move(bindFunc)} {}
-
-    inline std::string signatureToString() const override {
-        std::string result = common::LogicalTypeUtils::toString(parameterTypeIDs);
-        result += " -> " + common::LogicalTypeUtils::toString(returnTypeID);
-        return result;
+public:
+    explicit ValueVector(LogicalType dataType, storage::MemoryManager* memoryManager = nullptr,
+        std::shared_ptr<DataChunkState> dataChunkState = nullptr);
+    explicit ValueVector(LogicalTypeID dataTypeID, storage::MemoryManager* memoryManager = nullptr)
+        : ValueVector(LogicalType(dataTypeID), memoryManager) {
+        KU_ASSERT(dataTypeID != LogicalTypeID::LIST);
     }
 
-    common::LogicalTypeID returnTypeID;
-    // This function is used to bind parameter/return types for functions with nested dataType.
-    scalar_bind_func bindFunc;
+    DELETE_COPY_AND_MOVE(ValueVector);
+    ~ValueVector() = default;
+
+    template<typename T>
+    std::optional<T> firstNonNull() const {
+        sel_t selectedSize = state->getSelSize();
+        if (selectedSize == 0) {
+            return std::nullopt;
+        }
+        if (hasNoNullsGuarantee()) {
+            return getValue<T>(state->getSelVector()[0]);
+        } else {
+            for (size_t i = 0; i < selectedSize; i++) {
+                auto pos = state->getSelVector()[i];
+                if (!isNull(pos)) {
+                    return std::make_optional(getValue<T>(pos));
+                }
+            }
+        }
+        return std::nullopt;
+    }
+
+    template<class Func>
+    void forEachNonNull(Func&& func) const {
+        if (hasNoNullsGuarantee()) {
+            state->getSelVector().forEach(func);
+        } else {
+            state->getSelVector().forEach([&](auto i) {
+                if (!isNull(i)) {
+                    func(i);
+                }
+            });
+        }
+    }
+
+    uint32_t countNonNull() const;
+
+    void setState(const std::shared_ptr<DataChunkState>& state_);
+
+    void setAllNull() { nullMask.setAllNull(); }
+    void setAllNonNull() { nullMask.setAllNonNull(); }
+    // On return true, there are no null. On return false, there may or may not be nulls.
+    bool hasNoNullsGuarantee() const { return nullMask.hasNoNullsGuarantee(); }
+    void setNullRange(uint32_t startPos, uint32_t len, bool value) {
+        nullMask.setNullFromRange(startPos, len, value);
+    }
+    const NullMask& getNullMask() const { return nullMask; }
+    void setNull(uint32_t pos, bool isNull);
+    uint8_t isNull(uint32_t pos) const { return nullMask.isNull(pos); }
+    void setAsSingleNullEntry() {
+        state->getSelVectorUnsafe().setSelSize(1);
+        setNull(state->getSelVector()[0], true);
+    }
+
+    bool setNullFromBits(const uint64_t* srcNullEntries, uint64_t srcOffset, uint64_t dstOffset,
+        uint64_t numBitsToCopy, bool invert = false);
+
+    uint32_t getNumBytesPerValue() const { return numBytesPerValue; }
+
+    // TODO(Guodong): Rename this to getValueRef
+    template<typename T>
+    const T& getValue(uint32_t pos) const {
+        return ((T*)valueBuffer.get())[pos];
+    }
+    template<typename T>
+    T& getValue(uint32_t pos) {
+        return ((T*)valueBuffer.get())[pos];
+    }
+    template<typename T>
+    void setValue(uint32_t pos, T val);
+    // copyFromRowData assumes rowData is non-NULL.
+    void copyFromRowData(uint32_t pos, const uint8_t* rowData);
+    // copyToRowData assumes srcVectorData is non-NULL.
+    void copyToRowData(uint32_t pos, uint8_t* rowData,
+        InMemOverflowBuffer* rowOverflowBuffer) const;
+    // copyFromVectorData assumes srcVectorData is non-NULL.
+    void copyFromVectorData(uint8_t* dstData, const ValueVector* srcVector,
+        const uint8_t* srcVectorData);
+    void copyFromVectorData(uint64_t dstPos, const ValueVector* srcVector, uint64_t srcPos);
+    void copyFromValue(uint64_t pos, const Value& value);
+
+    std::unique_ptr<Value> getAsValue(uint64_t pos) const;
+
+    uint8_t* getData() const { return valueBuffer.get(); }
+
+    offset_t readNodeOffset(uint32_t pos) const {
+        KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::INTERNAL_ID);
+        return getValue<nodeID_t>(pos).offset;
+    }
+
+    void resetAuxiliaryBuffer();
+
+    // If there is still non-null values after discarding, return true. Otherwise, return false.
+    // For an unflat vector, its selection vector is also updated to the resultSelVector.
+    static bool discardNull(ValueVector& vector);
+
+    void serialize(Serializer& ser) const;
+    static std::unique_ptr<ValueVector> deSerialize(Deserializer& deSer, storage::MemoryManager* mm,
+        std::shared_ptr<DataChunkState> dataChunkState);
+
+    SelectionVector* getSelVectorPtr() const {
+        return state ? &state->getSelVectorUnsafe() : nullptr;
+    }
+
+private:
+    uint32_t getDataTypeSize(const LogicalType& type);
+    void initializeValueBuffer();
+
+public:
+    LogicalType dataType;
+    std::shared_ptr<DataChunkState> state;
+
+private:
+    std::unique_ptr<uint8_t[]> valueBuffer;
+    NullMask nullMask;
+    uint32_t numBytesPerValue;
+    std::unique_ptr<AuxiliaryBuffer> auxiliaryBuffer;
+};
+
+class KUZU_API StringVector {
+public:
+    static inline InMemOverflowBuffer* getInMemOverflowBuffer(ValueVector* vector) {
+        KU_ASSERT(vector->dataType.getPhysicalType() == PhysicalTypeID::STRING);
+        return ku_dynamic_cast<StringAuxiliaryBuffer*>(vector->auxiliaryBuffer.get())
+            ->getOverflowBuffer();
+    }
+
+    static void addString(ValueVector* vector, uint32_t vectorPos, ku_string_t& srcStr);
+    static void addString(ValueVector* vector, uint32_t vectorPos, const char* srcStr,
+        uint64_t length);
+    static void addString(ValueVector* vector, uint32_t vectorPos, std::string_view srcStr);
+    // Add empty string with space reserved for the provided size
+    // Returned value can be modified to set the string contents
+    static ku_string_t& reserveString(ValueVector* vector, uint32_t vectorPos, uint64_t length);
+    static void reserveString(ValueVector* vector, ku_string_t& dstStr, uint64_t length);
+    static void addString(ValueVector* vector, ku_string_t& dstStr, ku_string_t& srcStr);
+    static void addString(ValueVector* vector, ku_string_t& dstStr, const char* srcStr,
+        uint64_t length);
+    static void addString(kuzu::common::ValueVector* vector, ku_string_t& dstStr,
+        const std::string& srcStr);
+    static void copyToRowData(const ValueVector* vector, uint32_t pos, uint8_t* rowData,
+        InMemOverflowBuffer* rowOverflowBuffer);
+};
+
+struct KUZU_API BlobVector {
+    static void addBlob(ValueVector* vector, uint32_t pos, const char* data, uint32_t length) {
+        StringVector::addString(vector, pos, data, length);
+    } // namespace common
+    static void addBlob(ValueVector* vector, uint32_t pos, const uint8_t* data, uint64_t length) {
+        StringVector::addString(vector, pos, reinterpret_cast<const char*>(data), length);
+    }
+}; // namespace kuzu
+
+// ListVector is used for both LIST and ARRAY physical type
+class KUZU_API ListVector {
+public:
+    static const ListAuxiliaryBuffer& getAuxBuffer(const ValueVector& vector) {
+        return vector.auxiliaryBuffer->constCast<ListAuxiliaryBuffer>();
+    }
+    static ListAuxiliaryBuffer& getAuxBufferUnsafe(const ValueVector& vector) {
+        return vector.auxiliaryBuffer->cast<ListAuxiliaryBuffer>();
+    }
+    // If you call setDataVector during initialize, there must be a followed up
+    // copyListEntryAndBufferMetaData at runtime.
+    // TODO(Xiyang): try to merge setDataVector & copyListEntryAndBufferMetaData
+    static void setDataVector(const ValueVector* vector, std::shared_ptr<ValueVector> dataVector) {
+        KU_ASSERT(validateType(*vector));
+        auto& listBuffer = getAuxBufferUnsafe(*vector);
+        listBuffer.setDataVector(std::move(dataVector));
+    }
+    static void copyListEntryAndBufferMetaData(ValueVector& vector,
+        const SelectionVector& selVector, const ValueVector& other,
+        const SelectionVector& otherSelVector);
+    static ValueVector* getDataVector(const ValueVector* vector) {
+        KU_ASSERT(validateType(*vector));
+        return getAuxBuffer(*vector).getDataVector();
+    }
+    static std::shared_ptr<ValueVector> getSharedDataVector(const ValueVector* vector) {
+        KU_ASSERT(validateType(*vector));
+        return getAuxBuffer(*vector).getSharedDataVector();
+    }
+    static uint64_t getDataVectorSize(const ValueVector* vector) {
+        KU_ASSERT(validateType(*vector));
+        return getAuxBuffer(*vector).getSize();
+    }
+    static uint8_t* getListValues(const ValueVector* vector, const list_entry_t& listEntry) {
+        KU_ASSERT(validateType(*vector));
+        auto dataVector = getDataVector(vector);
+        return dataVector->getData() + dataVector->getNumBytesPerValue() * listEntry.offset;
+    }
+    static uint8_t* getListValuesWithOffset(const ValueVector* vector,
+        const list_entry_t& listEntry, offset_t elementOffsetInList) {
+        KU_ASSERT(validateType(*vector));
+        return getListValues(vector, listEntry) +
+               elementOffsetInList * getDataVector(vector)->getNumBytesPerValue();
+    }
+    static list_entry_t addList(ValueVector* vector, uint64_t listSize) {
+        KU_ASSERT(validateType(*vector));
+        return getAuxBufferUnsafe(*vector).addList(listSize);
+    }
+    static void resizeDataVector(ValueVector* vector, uint64_t numValues) {
+        KU_ASSERT(validateType(*vector));
+        getAuxBufferUnsafe(*vector).resize(numValues);
+    }
+
+    static void copyFromRowData(ValueVector* vector, uint32_t pos, const uint8_t* rowData);
+    static void copyToRowData(const ValueVector* vector, uint32_t pos, uint8_t* rowData,
+        InMemOverflowBuffer* rowOverflowBuffer);
+    static void copyFromVectorData(ValueVector* dstVector, uint8_t* dstData,
+        const ValueVector* srcVector, const uint8_t* srcData);
+    static void appendDataVector(ValueVector* dstVector, ValueVector* srcDataVector,
+        uint64_t numValuesToAppend);
+    static void sliceDataVector(ValueVector* vectorToSlice, uint64_t offset, uint64_t numValues);
+
+private:
+    static bool validateType(const ValueVector& vector) {
+        switch (vector.dataType.getPhysicalType()) {
+        case PhysicalTypeID::LIST:
+        case PhysicalTypeID::ARRAY:
+            return true;
+        default:
+            return false;
+        }
+    }
+};
+
+class StructVector {
+public:
+    static const std::vector<std::shared_ptr<ValueVector>>& getFieldVectors(
+        const ValueVector* vector) {
+        return ku_dynamic_cast<StructAuxiliaryBuffer*>(vector->auxiliaryBuffer.get())
+            ->getFieldVectors();
+    }
+
+    static std::shared_ptr<ValueVector> getFieldVector(const ValueVector* vector,
+        struct_field_idx_t idx) {
+        return ku_dynamic_cast<StructAuxiliaryBuffer*>(vector->auxiliaryBuffer.get())
+            ->getFieldVectorShared(idx);
+    }
+
+    static ValueVector* getFieldVectorRaw(const ValueVector& vector, const std::string& fieldName) {
+        auto idx = StructType::getFieldIdx(vector.dataType, fieldName);
+        return ku_dynamic_cast<StructAuxiliaryBuffer*>(vector.auxiliaryBuffer.get())
+            ->getFieldVectorPtr(idx);
+    }
+
+    static void referenceVector(ValueVector* vector, struct_field_idx_t idx,
+        std::shared_ptr<ValueVector> vectorToReference) {
+        ku_dynamic_cast<StructAuxiliaryBuffer*>(vector->auxiliaryBuffer.get())
+            ->referenceChildVector(idx, std::move(vectorToReference));
+    }
+
+    static void copyFromRowData(ValueVector* vector, uint32_t pos, const uint8_t* rowData);
+    static void copyToRowData(const ValueVector* vector, uint32_t pos, uint8_t* rowData,
+        InMemOverflowBuffer* rowOverflowBuffer);
+    static void copyFromVectorData(ValueVector* dstVector, const uint8_t* dstData,
+        const ValueVector* srcVector, const uint8_t* srcData);
+};
+
+class UnionVector {
+public:
+    static inline ValueVector* getTagVector(const ValueVector* vector) {
+        KU_ASSERT(vector->dataType.getLogicalTypeID() == LogicalTypeID::UNION);
+        return StructVector::getFieldVector(vector, UnionType::TAG_FIELD_IDX).get();
+    }
+
+    static inline ValueVector* getValVector(const ValueVector* vector, union_field_idx_t fieldIdx) {
+        KU_ASSERT(vector->dataType.getLogicalTypeID() == LogicalTypeID::UNION);
+        return StructVector::getFieldVector(vector, UnionType::getInternalFieldIdx(fieldIdx)).get();
+    }
+
+    static inline void referenceVector(ValueVector* vector, union_field_idx_t fieldIdx,
+        std::shared_ptr<ValueVector> vectorToReference) {
+        StructVector::referenceVector(vector, UnionType::getInternalFieldIdx(fieldIdx),
+            std::move(vectorToReference));
+    }
+
+    static inline void setTagField(ValueVector& vector, SelectionVector& sel,
+        union_field_idx_t tag) {
+        KU_ASSERT(vector.dataType.getLogicalTypeID() == LogicalTypeID::UNION);
+        for (auto i = 0u; i < sel.getSelSize(); i++) {
+            vector.setValue<struct_field_idx_t>(sel[i], tag);
+        }
+    }
+};
+
+class MapVector {
+public:
+    static inline ValueVector* getKeyVector(const ValueVector* vector) {
+        return StructVector::getFieldVector(ListVector::getDataVector(vector), 0 /* keyVectorPos */)
+            .get();
+    }
+
+    static inline ValueVector* getValueVector(const ValueVector* vector) {
+        return StructVector::getFieldVector(ListVector::getDataVector(vector), 1 /* valVectorPos */)
+            .get();
+    }
+
+    static inline uint8_t* getMapKeys(const ValueVector* vector, const list_entry_t& listEntry) {
+        auto keyVector = getKeyVector(vector);
+        return keyVector->getData() + keyVector->getNumBytesPerValue() * listEntry.offset;
+    }
+
+    static inline uint8_t* getMapValues(const ValueVector* vector, const list_entry_t& listEntry) {
+        auto valueVector = getValueVector(vector);
+        return valueVector->getData() + valueVector->getNumBytesPerValue() * listEntry.offset;
+    }
+};
+
+} // namespace common
+} // namespace kuzu
+
+#include <vector>
+
+
+namespace kuzu {
+namespace binder {
+class LiteralExpression;
+class Binder;
+} // namespace binder
+namespace main {
+class ClientContext;
+}
+
+namespace common {
+class Value;
+}
+
+namespace function {
+
+using optional_params_t = common::case_insensitive_map_t<common::Value>;
+
+struct TableFunction;
+
+struct ExtraTableFuncBindInput {
+    virtual ~ExtraTableFuncBindInput() = default;
+
+    template<class TARGET>
+    const TARGET* constPtrCast() const {
+        return common::ku_dynamic_cast<const TARGET*>(this);
+    }
+};
+
+struct KUZU_API TableFuncBindInput {
+    binder::expression_vector params;
+    optional_params_t optionalParams;
+    binder::expression_vector optionalParamsLegacy;
+    std::unique_ptr<ExtraTableFuncBindInput> extraInput = nullptr;
+    binder::Binder* binder = nullptr;
+    std::vector<parser::YieldVariable> yieldVariables;
+
+    TableFuncBindInput() = default;
+
+    void addLiteralParam(common::Value value);
+
+    std::shared_ptr<binder::Expression> getParam(common::idx_t idx) const { return params[idx]; }
+    common::Value getValue(common::idx_t idx) const;
+    template<typename T>
+    T getLiteralVal(common::idx_t idx) const;
+};
+
+struct KUZU_API ExtraScanTableFuncBindInput : ExtraTableFuncBindInput {
+    common::FileScanInfo fileScanInfo;
+    std::vector<std::string> expectedColumnNames;
+    std::vector<common::LogicalType> expectedColumnTypes;
+    TableFunction* tableFunction = nullptr;
 };
 
 } // namespace function
 } // namespace kuzu
 
-#include <string>
+#include <functional>
+#include <mutex>
+#include <vector>
 
 
 namespace kuzu {
-namespace main {
+namespace common {
+class ValueVector;
+}
+namespace storage {
+class ColumnChunkData;
+}
 
-struct DataTypeInfo {
-public:
-    DataTypeInfo(common::LogicalTypeID typeID, std::string name)
-        : typeID{typeID}, name{std::move(name)}, numValuesPerList{0} {}
+namespace processor {
 
-    common::LogicalTypeID typeID;
-    std::string name;
-    std::vector<std::unique_ptr<DataTypeInfo>> childrenTypesInfo;
-    // Used by fixedList only.
-    uint64_t numValuesPerList;
+class SerialCSVReader;
 
-    static std::unique_ptr<DataTypeInfo> getInfoForDataType(
-        const common::LogicalType& type, const std::string& name);
+struct WarningInfo {
+    uint64_t queryID;
+    PopulatedCopyFromError warning;
+
+    WarningInfo(PopulatedCopyFromError warning, uint64_t queryID)
+        : queryID(queryID), warning(std::move(warning)) {}
 };
+
+using populate_func_t = std::function<PopulatedCopyFromError(CopyFromFileError, common::idx_t)>;
+using get_file_idx_func_t = std::function<common::idx_t(const CopyFromFileError&)>;
+
+class KUZU_API WarningContext {
+public:
+    explicit WarningContext(main::ClientConfig* clientConfig);
+
+    void appendWarningMessages(const std::vector<CopyFromFileError>& messages);
+
+    void populateWarnings(uint64_t queryID, populate_func_t populateFunc = {},
+        get_file_idx_func_t getFileIdxFunc = {});
+    void defaultPopulateAllWarnings(uint64_t queryID);
+
+    const std::vector<WarningInfo>& getPopulatedWarnings() const;
+    uint64_t getWarningCount(uint64_t queryID);
+    void clearPopulatedWarnings();
+
+    void setIgnoreErrorsForCurrentQuery(bool ignoreErrors);
+    // NOTE: this function only works if the logical operator is COPY FROM
+    // for other operators setIgnoreErrorsForCurrentQuery() is not called
+    bool getIgnoreErrorsOption() const;
+
+private:
+    std::mutex mtx;
+    main::ClientConfig* clientConfig;
+    std::vector<CopyFromFileError> unpopulatedWarnings;
+    std::vector<WarningInfo> populatedWarnings;
+    uint64_t queryWarningCount;
+    uint64_t numStoredWarnings;
+    bool ignoreErrorsOption;
+};
+
+} // namespace processor
+} // namespace kuzu
+
+#include <string>
+
+namespace kuzu {
+namespace main {
 
 /**
  * @brief QueryResult stores the result of a query execution.
  */
 class QueryResult {
     friend class Connection;
+    friend class ClientContext;
     class QueryResultIterator {
     private:
         QueryResult* currentResult;
 
     public:
+        QueryResultIterator() = default;
+
         explicit QueryResultIterator(QueryResult* startResult) : currentResult(startResult) {}
 
         void operator++() {
@@ -4674,9 +6214,11 @@ class QueryResult {
             }
         }
 
-        bool isEnd() { return currentResult == nullptr; }
+        bool isEnd() const { return currentResult == nullptr; }
 
-        QueryResult* getCurrentResult() { return currentResult; }
+        bool hasNextQueryResult() const { return currentResult->nextQueryResult != nullptr; }
+
+        QueryResult* getCurrentResult() const { return currentResult; }
     };
 
 public:
@@ -4719,23 +6261,31 @@ public:
      * options.
      */
     KUZU_API QuerySummary* getQuerySummary() const;
-
-    std::vector<std::unique_ptr<DataTypeInfo>> getColumnTypesInfo() const;
     /**
      * @return whether there are more tuples to read.
      */
     KUZU_API bool hasNext() const;
-    std::unique_ptr<QueryResult> nextQueryResult;
-
-    std::string toSingleQueryString();
     /**
-     * @return next flat tuple in the query result.
+     * @return whether there are more query results to read.
+     */
+    KUZU_API bool hasNextQueryResult() const;
+    /**
+     * @return get next query result to read (for multiple query statements).
+     */
+    KUZU_API QueryResult* getNextQueryResult();
+
+    std::unique_ptr<QueryResult> nextQueryResult;
+    /**
+     * @return next flat tuple in the query result. Note that to reduce resource allocation, all
+     * calls to getNext() reuse the same FlatTuple object. Since its contents will be overwritten,
+     * please complete processing a FlatTuple or make a copy of its data before calling getNext()
+     * again.
      */
     KUZU_API std::shared_ptr<processor::FlatTuple> getNext();
     /**
-     * @return string of query result.
+     * @return string of first query result.
      */
-    KUZU_API std::string toString();
+    KUZU_API std::string toString() const;
 
     /**
      * @brief Resets the result tuple iterator.
@@ -4767,9 +6317,13 @@ public:
     KUZU_API std::unique_ptr<ArrowArray> getNextArrowChunk(int64_t chunkSize);
 
 private:
-    void initResultTableAndIterator(std::shared_ptr<processor::FactorizedTable> factorizedTable_,
-        const std::vector<std::shared_ptr<binder::Expression>>& columns);
+    void setColumnHeader(std::vector<std::string> columnNames,
+        std::vector<common::LogicalType> columnTypes);
+    void initResultTableAndIterator(std::shared_ptr<processor::FactorizedTable> factorizedTable_);
     void validateQuerySucceed() const;
+    std::pair<std::unique_ptr<processor::FlatTuple>, std::unique_ptr<processor::FlatTupleIterator>>
+    getIterator() const;
+    void checkDatabaseClosedOrThrow() const;
 
 private:
     // execution status
@@ -4786,455 +6340,250 @@ private:
 
     // execution statistics
     std::unique_ptr<QuerySummary> querySummary;
+
+    // query iterator
+    QueryResultIterator queryResultIterator;
+
+    // database life cycle manager
+    std::shared_ptr<common::DatabaseLifeCycleManager> dbLifeCycleManager;
 };
 
 } // namespace main
 } // namespace kuzu
 
-#include <numeric>
-#include <utility>
+#include <memory>
+#include <mutex>
+#include <vector>
+
+#if defined(__APPLE__)
+#include <pthread/qos.h>
+#endif
+
+namespace kuzu {
+namespace common {
+class FileSystem;
+enum class LogicalTypeID : uint8_t;
+} // namespace common
+
+namespace catalog {
+class CatalogEntry;
+} // namespace catalog
+
+namespace function {
+struct Function;
+} // namespace function
+
+namespace extension {
+struct ExtensionUtils;
+class ExtensionManager;
+} // namespace extension
+
+namespace storage {
+class StorageExtension;
+} // namespace storage
+
+namespace main {
+struct ExtensionOption;
+class DatabaseManager;
+
+/**
+ * @brief Stores runtime configuration for creating or opening a Database
+ */
+struct KUZU_API SystemConfig {
+    /**
+     * @brief Creates a SystemConfig object.
+     * @param bufferPoolSize Max size of the buffer pool in bytes.
+     *        The larger the buffer pool, the more data from the database files is kept in memory,
+     *        reducing the amount of File I/O
+     * @param maxNumThreads The maximum number of threads to use during query execution
+     * @param enableCompression Whether or not to compress data on-disk for supported types
+     * @param readOnly If true, the database is opened read-only. No write transaction is
+     * allowed on the `Database` object. Multiple read-only `Database` objects can be created with
+     * the same database path. If false, the database is opened read-write. Under this mode,
+     * there must not be multiple `Database` objects created with the same database path.
+     * @param maxDBSize The maximum size of the database in bytes. Note that this is introduced
+     * temporarily for now to get around with the default 8TB mmap address space limit some
+     * environment. This will be removed once we implemente a better solution later. The value is
+     * default to 1 << 43 (8TB) under 64-bit environment and 1GB under 32-bit one (see
+     * `DEFAULT_VM_REGION_MAX_SIZE`).
+     * @param autoCheckpoint If true, the database will automatically checkpoint when the size of
+     * the WAL file exceeds the checkpoint threshold.
+     * @param checkpointThreshold The threshold of the WAL file size in bytes. When the size of the
+     * WAL file exceeds this threshold, the database will checkpoint if autoCheckpoint is true.
+     * @param forceCheckpointOnClose If true, the database will force checkpoint when closing.
+     */
+    explicit SystemConfig(uint64_t bufferPoolSize = -1u, uint64_t maxNumThreads = 0,
+        bool enableCompression = true, bool readOnly = false, uint64_t maxDBSize = -1u,
+        bool autoCheckpoint = true, uint64_t checkpointThreshold = 16777216 /* 16MB */,
+        bool forceCheckpointOnClose = true
+#if defined(__APPLE__)
+        ,
+        uint32_t threadQos = QOS_CLASS_DEFAULT
+#endif
+    );
+
+    uint64_t bufferPoolSize;
+    uint64_t maxNumThreads;
+    bool enableCompression;
+    bool readOnly;
+    uint64_t maxDBSize;
+    bool autoCheckpoint;
+    uint64_t checkpointThreshold;
+    bool forceCheckpointOnClose;
+#if defined(__APPLE__)
+    uint32_t threadQos;
+#endif
+};
+
+/**
+ * @brief Database class is the main class of Kuzu. It manages all database components.
+ */
+class Database {
+    friend class EmbeddedShell;
+    friend class ClientContext;
+    friend class Connection;
+    friend class StorageDriver;
+    friend class testing::BaseGraphTest;
+    friend class testing::PrivateGraphTest;
+    friend class transaction::TransactionContext;
+    friend struct extension::ExtensionUtils;
+
+public:
+    /**
+     * @brief Creates a database object.
+     * @param databasePath Database path. If left empty, or :memory: is specified, this will create
+     *        an in-memory database.
+     * @param systemConfig System configurations (buffer pool size and max num threads).
+     */
+    KUZU_API explicit Database(std::string_view databasePath,
+        SystemConfig systemConfig = SystemConfig());
+    /**
+     * @brief Destructs the database object.
+     */
+    KUZU_API ~Database();
+
+    KUZU_API void registerFileSystem(std::unique_ptr<common::FileSystem> fs);
+
+    KUZU_API void registerStorageExtension(std::string name,
+        std::unique_ptr<storage::StorageExtension> storageExtension);
+
+    KUZU_API void addExtensionOption(std::string name, common::LogicalTypeID type,
+        common::Value defaultValue, bool isConfidential = false);
+
+    KUZU_API catalog::Catalog* getCatalog() { return catalog.get(); }
+
+    const DBConfig& getConfig() const { return dbConfig; }
+
+    std::vector<storage::StorageExtension*> getStorageExtensions();
+
+    uint64_t getNextQueryID();
+
+private:
+    using construct_bm_func_t =
+        std::function<std::unique_ptr<storage::BufferManager>(const Database&)>;
+
+    struct QueryIDGenerator {
+        uint64_t queryID = 0;
+        std::mutex queryIDLock;
+    };
+
+    static std::unique_ptr<storage::BufferManager> initBufferManager(const Database& db);
+    void initMembers(std::string_view dbPath, construct_bm_func_t initBmFunc = initBufferManager);
+
+    // factory method only to be used for tests
+    Database(std::string_view databasePath, SystemConfig systemConfig,
+        construct_bm_func_t constructBMFunc);
+
+    void validatePathInReadOnly() const;
+
+private:
+    std::string databasePath;
+    DBConfig dbConfig;
+    std::unique_ptr<common::VirtualFileSystem> vfs;
+    std::unique_ptr<storage::BufferManager> bufferManager;
+    std::unique_ptr<storage::MemoryManager> memoryManager;
+    std::unique_ptr<processor::QueryProcessor> queryProcessor;
+    std::unique_ptr<catalog::Catalog> catalog;
+    std::unique_ptr<storage::StorageManager> storageManager;
+    std::unique_ptr<transaction::TransactionManager> transactionManager;
+    std::unique_ptr<common::FileInfo> lockFile;
+    std::unique_ptr<DatabaseManager> databaseManager;
+    std::unique_ptr<extension::ExtensionManager> extensionManager;
+    QueryIDGenerator queryIDGenerator;
+    std::shared_ptr<common::DatabaseLifeCycleManager> dbLifeCycleManager;
+};
+
+} // namespace main
+} // namespace kuzu
+
+
+namespace kuzu {
+namespace function {
+
+struct CastFunctionBindData : public FunctionBindData {
+    // We don't allow configuring delimiters, ... in CAST function.
+    // For performance purpose, we generate a default option object during binding time.
+    common::CSVOption option;
+    // TODO(Mahn): the following field should be removed once we refactor fixed list.
+    uint64_t numOfEntries;
+
+    explicit CastFunctionBindData(common::LogicalType dataType)
+        : FunctionBindData{std::move(dataType)}, numOfEntries(0) {}
+
+    inline std::unique_ptr<FunctionBindData> copy() const override {
+        auto result = std::make_unique<CastFunctionBindData>(resultType.copy());
+        result->numOfEntries = numOfEntries;
+        result->option = option.copy();
+        return result;
+    }
+};
+
+} // namespace function
+} // namespace kuzu
+
+#include <memory>
+#include <vector>
 
 
 namespace kuzu {
 namespace common {
 
-class Value;
+// A DataChunk represents tuples as a set of value vectors and a selector array.
+// The data chunk represents a subset of a relation i.e., a set of tuples as
+// lists of the same length. It is appended into DataChunks and passed as intermediate
+// representations between operators.
+// A data chunk further contains a DataChunkState, which keeps the data chunk's size, selector, and
+// currIdx (used when flattening and implies the value vector only contains the elements at currIdx
+// of each value vector).
+class KUZU_API DataChunk {
+public:
+    DataChunk() : DataChunk{0} {}
+    explicit DataChunk(uint32_t numValueVectors)
+        : DataChunk(numValueVectors, std::make_shared<DataChunkState>()){};
 
-//! A Vector represents values of the same data type.
-//! The capacity of a ValueVector is either 1 (sequence) or DEFAULT_VECTOR_CAPACITY.
-class ValueVector {
-    friend class ListVector;
-    friend class FixedListVector;
-    friend class ListAuxiliaryBuffer;
-    friend class StructVector;
-    friend class StringVector;
-    friend class ArrowColumnVector;
+    DataChunk(uint32_t numValueVectors, const std::shared_ptr<DataChunkState>& state)
+        : valueVectors(numValueVectors), state{state} {};
+    DELETE_COPY_DEFAULT_MOVE(DataChunk);
+
+    void insert(uint32_t pos, std::shared_ptr<ValueVector> valueVector);
+
+    void resetAuxiliaryBuffer();
+
+    uint32_t getNumValueVectors() const { return valueVectors.size(); }
+
+    const ValueVector& getValueVector(uint64_t valueVectorPos) const {
+        return *valueVectors[valueVectorPos];
+    }
+    ValueVector& getValueVectorMutable(uint64_t valueVectorPos) const {
+        return *valueVectors[valueVectorPos];
+    }
 
 public:
-    explicit ValueVector(LogicalType dataType, storage::MemoryManager* memoryManager = nullptr);
-    explicit ValueVector(LogicalTypeID dataTypeID, storage::MemoryManager* memoryManager = nullptr)
-        : ValueVector(LogicalType(dataTypeID), memoryManager) {
-        KU_ASSERT(dataTypeID != LogicalTypeID::VAR_LIST);
-    }
-
-    KUZU_API ~ValueVector() = default;
-
-    void setState(const std::shared_ptr<DataChunkState>& state_);
-
-    inline void setAllNull() { nullMask->setAllNull(); }
-    inline void setAllNonNull() { nullMask->setAllNonNull(); }
-    // On return true, there are no null. On return false, there may or may not be nulls.
-    inline bool hasNoNullsGuarantee() const { return nullMask->hasNoNullsGuarantee(); }
-    inline void setNullRange(uint32_t startPos, uint32_t len, bool value) {
-        nullMask->setNullFromRange(startPos, len, value);
-    }
-    inline const uint64_t* getNullMaskData() { return nullMask->getData(); }
-    KUZU_API void setNull(uint32_t pos, bool isNull);
-    inline uint8_t isNull(uint32_t pos) const { return nullMask->isNull(pos); }
-    inline void setAsSingleNullEntry() {
-        state->selVector->selectedSize = 1;
-        setNull(state->selVector->selectedPositions[0], true);
-    }
-
-    bool setNullFromBits(const uint64_t* srcNullEntries, uint64_t srcOffset, uint64_t dstOffset,
-        uint64_t numBitsToCopy);
-
-    inline uint32_t getNumBytesPerValue() const { return numBytesPerValue; }
-
-    // TODO(Guodong): Rename this to getValueRef
-    template<typename T>
-    inline T& getValue(uint32_t pos) const {
-        return ((T*)valueBuffer.get())[pos];
-    }
-    template<typename T>
-    KUZU_API void setValue(uint32_t pos, T val);
-    // copyFromRowData assumes rowData is non-NULL.
-    void copyFromRowData(uint32_t pos, const uint8_t* rowData);
-    // copyToRowData assumes srcVectorData is non-NULL.
-    void copyToRowData(
-        uint32_t pos, uint8_t* rowData, InMemOverflowBuffer* rowOverflowBuffer) const;
-    // copyFromVectorData assumes srcVectorData is non-NULL.
-    void copyFromVectorData(
-        uint8_t* dstData, const ValueVector* srcVector, const uint8_t* srcVectorData);
-    void copyFromVectorData(uint64_t dstPos, const ValueVector* srcVector, uint64_t srcPos);
-    void copyFromValue(uint64_t pos, const Value& value);
-
-    std::unique_ptr<Value> getAsValue(uint64_t pos);
-
-    inline uint8_t* getData() const { return valueBuffer.get(); }
-
-    inline offset_t readNodeOffset(uint32_t pos) const {
-        KU_ASSERT(dataType.getLogicalTypeID() == LogicalTypeID::INTERNAL_ID);
-        return getValue<nodeID_t>(pos).offset;
-    }
-
-    inline void setSequential() { _isSequential = true; }
-    inline bool isSequential() const { return _isSequential; }
-
-    KUZU_API void resetAuxiliaryBuffer();
-
-    // If there is still non-null values after discarding, return true. Otherwise, return false.
-    // For an unflat vector, its selection vector is also updated to the resultSelVector.
-    static bool discardNull(ValueVector& vector);
-
-private:
-    uint32_t getDataTypeSize(const LogicalType& type);
-    void initializeValueBuffer();
-
-public:
-    LogicalType dataType;
+    std::vector<std::shared_ptr<ValueVector>> valueVectors;
     std::shared_ptr<DataChunkState> state;
-
-private:
-    bool _isSequential = false;
-    std::unique_ptr<uint8_t[]> valueBuffer;
-    std::unique_ptr<NullMask> nullMask;
-    uint32_t numBytesPerValue;
-    std::unique_ptr<AuxiliaryBuffer> auxiliaryBuffer;
-};
-
-class StringVector {
-public:
-    static inline InMemOverflowBuffer* getInMemOverflowBuffer(ValueVector* vector) {
-        KU_ASSERT(vector->dataType.getPhysicalType() == PhysicalTypeID::STRING);
-        return ku_dynamic_cast<AuxiliaryBuffer*, StringAuxiliaryBuffer*>(
-            vector->auxiliaryBuffer.get())
-            ->getOverflowBuffer();
-    }
-
-    static void addString(ValueVector* vector, uint32_t vectorPos, ku_string_t& srcStr);
-    static void addString(
-        ValueVector* vector, uint32_t vectorPos, const char* srcStr, uint64_t length);
-    static void addString(ValueVector* vector, uint32_t vectorPos, const std::string& srcStr);
-    // Add empty string with space reserved for the provided size
-    // Returned value can be modified to set the string contents
-    static ku_string_t& reserveString(ValueVector* vector, uint32_t vectorPos, uint64_t length);
-    static void addString(ValueVector* vector, ku_string_t& dstStr, ku_string_t& srcStr);
-    static void addString(
-        ValueVector* vector, ku_string_t& dstStr, const char* srcStr, uint64_t length);
-    static void addString(
-        kuzu::common::ValueVector* vector, ku_string_t& dstStr, const std::string& srcStr);
-    static void copyToRowData(const ValueVector* vector, uint32_t pos, uint8_t* rowData,
-        InMemOverflowBuffer* rowOverflowBuffer);
-};
-
-struct BlobVector {
-    static void addBlob(ValueVector* vector, uint32_t pos, const char* data, uint32_t length) {
-        StringVector::addString(vector, pos, data, length);
-    }
-    static void addBlob(ValueVector* vector, uint32_t pos, const uint8_t* data, uint64_t length) {
-        StringVector::addString(vector, pos, reinterpret_cast<const char*>(data), length);
-    }
-};
-
-class ListVector {
-public:
-    static inline void setDataVector(
-        const ValueVector* vector, std::shared_ptr<ValueVector> dataVector) {
-        KU_ASSERT(vector->dataType.getPhysicalType() == PhysicalTypeID::VAR_LIST);
-        auto listBuffer =
-            ku_dynamic_cast<AuxiliaryBuffer*, ListAuxiliaryBuffer*>(vector->auxiliaryBuffer.get());
-        listBuffer->setDataVector(std::move(dataVector));
-    }
-    static inline ValueVector* getDataVector(const ValueVector* vector) {
-        KU_ASSERT(vector->dataType.getPhysicalType() == PhysicalTypeID::VAR_LIST);
-        return ku_dynamic_cast<AuxiliaryBuffer*, ListAuxiliaryBuffer*>(
-            vector->auxiliaryBuffer.get())
-            ->getDataVector();
-    }
-    static inline std::shared_ptr<ValueVector> getSharedDataVector(const ValueVector* vector) {
-        KU_ASSERT(vector->dataType.getPhysicalType() == PhysicalTypeID::VAR_LIST);
-        return ku_dynamic_cast<AuxiliaryBuffer*, ListAuxiliaryBuffer*>(
-            vector->auxiliaryBuffer.get())
-            ->getSharedDataVector();
-    }
-    static inline uint64_t getDataVectorSize(const ValueVector* vector) {
-        KU_ASSERT(vector->dataType.getPhysicalType() == PhysicalTypeID::VAR_LIST);
-        return ku_dynamic_cast<AuxiliaryBuffer*, ListAuxiliaryBuffer*>(
-            vector->auxiliaryBuffer.get())
-            ->getSize();
-    }
-
-    static inline uint8_t* getListValues(const ValueVector* vector, const list_entry_t& listEntry) {
-        KU_ASSERT(vector->dataType.getPhysicalType() == PhysicalTypeID::VAR_LIST);
-        auto dataVector = getDataVector(vector);
-        return dataVector->getData() + dataVector->getNumBytesPerValue() * listEntry.offset;
-    }
-    static inline uint8_t* getListValuesWithOffset(
-        const ValueVector* vector, const list_entry_t& listEntry, offset_t elementOffsetInList) {
-        KU_ASSERT(vector->dataType.getPhysicalType() == PhysicalTypeID::VAR_LIST);
-        return getListValues(vector, listEntry) +
-               elementOffsetInList * getDataVector(vector)->getNumBytesPerValue();
-    }
-    static inline list_entry_t addList(ValueVector* vector, uint64_t listSize) {
-        KU_ASSERT(vector->dataType.getPhysicalType() == PhysicalTypeID::VAR_LIST);
-        return ku_dynamic_cast<AuxiliaryBuffer*, ListAuxiliaryBuffer*>(
-            vector->auxiliaryBuffer.get())
-            ->addList(listSize);
-    }
-    static inline void resizeDataVector(ValueVector* vector, uint64_t numValues) {
-        ku_dynamic_cast<AuxiliaryBuffer*, ListAuxiliaryBuffer*>(vector->auxiliaryBuffer.get())
-            ->resize(numValues);
-    }
-
-    static void copyFromRowData(ValueVector* vector, uint32_t pos, const uint8_t* rowData);
-    static void copyToRowData(const ValueVector* vector, uint32_t pos, uint8_t* rowData,
-        InMemOverflowBuffer* rowOverflowBuffer);
-    static void copyFromVectorData(ValueVector* dstVector, uint8_t* dstData,
-        const ValueVector* srcVector, const uint8_t* srcData);
-    static void appendDataVector(
-        ValueVector* dstVector, ValueVector* srcDataVector, uint64_t numValuesToAppend);
-    static void sliceDataVector(ValueVector* vectorToSlice, uint64_t offset, uint64_t numValues);
-};
-
-class FixedListVector {
-public:
-    template<typename T>
-    static void getAsValue(ValueVector* vector, std::vector<std::unique_ptr<Value>>& children,
-        uint64_t pos, uint64_t numElements);
-};
-
-template<>
-void FixedListVector::getAsValue<int64_t>(ValueVector* vector,
-    std::vector<std::unique_ptr<Value>>& children, uint64_t pos, uint64_t numElements);
-template<>
-void FixedListVector::getAsValue<int32_t>(ValueVector* vector,
-    std::vector<std::unique_ptr<Value>>& children, uint64_t pos, uint64_t numElements);
-template<>
-void FixedListVector::getAsValue<int16_t>(ValueVector* vector,
-    std::vector<std::unique_ptr<Value>>& children, uint64_t pos, uint64_t numElements);
-template<>
-void FixedListVector::getAsValue<double>(ValueVector* vector,
-    std::vector<std::unique_ptr<Value>>& children, uint64_t pos, uint64_t numElements);
-template<>
-void FixedListVector::getAsValue<float>(ValueVector* vector,
-    std::vector<std::unique_ptr<Value>>& children, uint64_t pos, uint64_t numElements);
-
-class StructVector {
-public:
-    static inline const std::vector<std::shared_ptr<ValueVector>>& getFieldVectors(
-        const ValueVector* vector) {
-        return ku_dynamic_cast<AuxiliaryBuffer*, StructAuxiliaryBuffer*>(
-            vector->auxiliaryBuffer.get())
-            ->getFieldVectors();
-    }
-
-    static inline std::shared_ptr<ValueVector> getFieldVector(
-        const ValueVector* vector, struct_field_idx_t idx) {
-        return ku_dynamic_cast<AuxiliaryBuffer*, StructAuxiliaryBuffer*>(
-            vector->auxiliaryBuffer.get())
-            ->getFieldVectors()[idx];
-    }
-
-    static inline void referenceVector(ValueVector* vector, struct_field_idx_t idx,
-        std::shared_ptr<ValueVector> vectorToReference) {
-        ku_dynamic_cast<AuxiliaryBuffer*, StructAuxiliaryBuffer*>(vector->auxiliaryBuffer.get())
-            ->referenceChildVector(idx, std::move(vectorToReference));
-    }
-
-    static inline void initializeEntries(ValueVector* vector) {
-        std::iota(reinterpret_cast<int64_t*>(vector->getData()),
-            reinterpret_cast<int64_t*>(
-                vector->getData() + vector->getNumBytesPerValue() * DEFAULT_VECTOR_CAPACITY),
-            0);
-    }
-
-    static void copyFromRowData(ValueVector* vector, uint32_t pos, const uint8_t* rowData);
-    static void copyToRowData(const ValueVector* vector, uint32_t pos, uint8_t* rowData,
-        InMemOverflowBuffer* rowOverflowBuffer);
-    static void copyFromVectorData(ValueVector* dstVector, const uint8_t* dstData,
-        const ValueVector* srcVector, const uint8_t* srcData);
-};
-
-class UnionVector {
-public:
-    static inline ValueVector* getTagVector(const ValueVector* vector) {
-        KU_ASSERT(vector->dataType.getLogicalTypeID() == LogicalTypeID::UNION);
-        return StructVector::getFieldVector(vector, UnionType::TAG_FIELD_IDX).get();
-    }
-
-    static inline ValueVector* getValVector(const ValueVector* vector, union_field_idx_t fieldIdx) {
-        KU_ASSERT(vector->dataType.getLogicalTypeID() == LogicalTypeID::UNION);
-        return StructVector::getFieldVector(vector, UnionType::getInternalFieldIdx(fieldIdx)).get();
-    }
-
-    static inline void referenceVector(ValueVector* vector, union_field_idx_t fieldIdx,
-        std::shared_ptr<ValueVector> vectorToReference) {
-        StructVector::referenceVector(
-            vector, UnionType::getInternalFieldIdx(fieldIdx), std::move(vectorToReference));
-    }
-
-    static inline void setTagField(ValueVector* vector, union_field_idx_t tag) {
-        KU_ASSERT(vector->dataType.getLogicalTypeID() == LogicalTypeID::UNION);
-        for (auto i = 0u; i < vector->state->selVector->selectedSize; i++) {
-            vector->setValue<struct_field_idx_t>(
-                vector->state->selVector->selectedPositions[i], tag);
-        }
-    }
-};
-
-class MapVector {
-public:
-    static inline ValueVector* getKeyVector(const ValueVector* vector) {
-        return StructVector::getFieldVector(ListVector::getDataVector(vector), 0 /* keyVectorPos */)
-            .get();
-    }
-
-    static inline ValueVector* getValueVector(const ValueVector* vector) {
-        return StructVector::getFieldVector(ListVector::getDataVector(vector), 1 /* valVectorPos */)
-            .get();
-    }
-
-    static inline uint8_t* getMapKeys(const ValueVector* vector, const list_entry_t& listEntry) {
-        auto keyVector = getKeyVector(vector);
-        return keyVector->getData() + keyVector->getNumBytesPerValue() * listEntry.offset;
-    }
-
-    static inline uint8_t* getMapValues(const ValueVector* vector, const list_entry_t& listEntry) {
-        auto valueVector = getValueVector(vector);
-        return valueVector->getData() + valueVector->getNumBytesPerValue() * listEntry.offset;
-    }
-};
-
-struct RdfVariantVector {
-    static void addString(ValueVector* vector, sel_t pos, ku_string_t str);
-    static void addString(ValueVector* vector, sel_t pos, const char* str, uint32_t length);
-
-    template<typename T>
-    static void add(ValueVector* vector, sel_t pos, T val);
 };
 
 } // namespace common
-} // namespace kuzu
-
-#include <map>
-
-
-namespace kuzu {
-namespace storage {
-class TableData;
-
-using offset_to_row_idx_t = std::map<common::offset_t, common::row_idx_t>;
-using offset_set_t = std::unordered_set<common::offset_t>;
-using update_insert_info_t = std::map<common::offset_t, offset_to_row_idx_t>;
-using delete_info_t = std::map<common::offset_t, std::unordered_set<common::offset_t>>;
-
-// TODO(Guodong): Instead of using ValueVector, we should switch to ColumnChunk.
-// This class is used to store a chunk of local changes to a column in a node group.
-// Values are stored inside `vector`.
-class LocalVector {
-public:
-    LocalVector(const common::LogicalType& dataType, MemoryManager* mm) : numValues{0} {
-        vector = std::make_unique<common::ValueVector>(dataType, mm);
-        vector->setState(std::make_shared<common::DataChunkState>());
-        vector->state->selVector->resetSelectorToValuePosBufferWithSize(1);
-    }
-
-    void read(common::sel_t offsetInLocalVector, common::ValueVector* resultVector,
-        common::sel_t offsetInResultVector);
-    void append(common::ValueVector* valueVector);
-
-    inline common::ValueVector* getVector() { return vector.get(); }
-    inline bool isFull() const { return numValues == common::DEFAULT_VECTOR_CAPACITY; }
-
-private:
-    std::unique_ptr<common::ValueVector> vector;
-    common::sel_t numValues;
-};
-
-// This class is used to store local changes of a column in a node group.
-// It consists of a collection of LocalVector, each of which is a chunk of the local changes.
-// By default, the size of each vector (chunk) is DEFAULT_VECTOR_CAPACITY, and the collection
-// contains 64 vectors (chunks).
-class LocalVectorCollection {
-public:
-    LocalVectorCollection(std::unique_ptr<common::LogicalType> dataType, MemoryManager* mm)
-        : dataType{std::move(dataType)}, mm{mm}, numRows{0} {}
-
-    void read(common::row_idx_t rowIdx, common::ValueVector* outputVector,
-        common::sel_t posInOutputVector);
-    inline uint64_t getNumRows() const { return numRows; }
-    inline LocalVector* getLocalVector(common::row_idx_t rowIdx) {
-        auto vectorIdx = rowIdx >> common::DEFAULT_VECTOR_CAPACITY_LOG_2;
-        KU_ASSERT(vectorIdx < vectors.size());
-        return vectors[vectorIdx].get();
-    }
-
-    std::unique_ptr<LocalVectorCollection> getStructChildVectorCollection(
-        common::struct_field_idx_t idx);
-
-    // TODO(Guodong): Change this interface to take an extra `SelVector` or `DataChunkState`.
-    common::row_idx_t append(common::ValueVector* vector);
-
-private:
-    void prepareAppend();
-
-private:
-    std::unique_ptr<common::LogicalType> dataType;
-    MemoryManager* mm;
-    std::vector<std::unique_ptr<LocalVector>> vectors;
-    common::row_idx_t numRows;
-};
-
-class LocalNodeGroup {
-    friend class NodeTableData;
-
-public:
-    LocalNodeGroup(common::offset_t nodeGroupStartOffset,
-        std::vector<common::LogicalType*> dataTypes, MemoryManager* mm);
-    virtual ~LocalNodeGroup() = default;
-
-    inline LocalVectorCollection* getLocalColumnChunk(common::column_id_t columnID) {
-        return chunks[columnID].get();
-    }
-
-protected:
-    common::offset_t nodeGroupStartOffset;
-    std::vector<std::unique_ptr<LocalVectorCollection>> chunks;
-};
-
-class LocalTableData {
-    friend class NodeTableData;
-
-public:
-    LocalTableData(std::vector<common::LogicalType*> dataTypes, MemoryManager* mm,
-        common::ColumnDataFormat dataFormat)
-        : dataTypes{std::move(dataTypes)}, mm{mm}, dataFormat{dataFormat} {}
-    virtual ~LocalTableData() = default;
-
-    inline void clear() { nodeGroups.clear(); }
-
-protected:
-    virtual LocalNodeGroup* getOrCreateLocalNodeGroup(common::ValueVector* nodeIDVector) = 0;
-
-protected:
-    std::vector<common::LogicalType*> dataTypes;
-    MemoryManager* mm;
-    common::ColumnDataFormat dataFormat;
-    std::unordered_map<common::node_group_idx_t, std::unique_ptr<LocalNodeGroup>> nodeGroups;
-};
-
-class Column;
-class LocalTable {
-public:
-    explicit LocalTable(common::TableType tableType) : tableType{tableType} {};
-
-    LocalTableData* getOrCreateLocalTableData(const std::vector<std::unique_ptr<Column>>& columns,
-        MemoryManager* mm, common::ColumnDataFormat dataFormat = common::ColumnDataFormat::REGULAR,
-        common::vector_idx_t dataIdx = 0);
-    inline LocalTableData* getLocalTableData(common::vector_idx_t dataIdx) {
-        KU_ASSERT(dataIdx < localTableDataCollection.size());
-        return localTableDataCollection[dataIdx].get();
-    }
-
-private:
-    common::TableType tableType;
-    // For a node table, it should only contain one LocalTableData, while a rel table should contain
-    // two, one for each direction.
-    std::vector<std::unique_ptr<LocalTableData>> localTableDataCollection;
-};
-
-} // namespace storage
 } // namespace kuzu
 
 
@@ -5257,10 +6606,20 @@ struct BinaryFunctionWrapper {
 
 struct BinaryListStructFunctionWrapper {
     template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename OP>
-    static inline void operation(LEFT_TYPE& left, RIGHT_TYPE& right, RESULT_TYPE& result,
+    static void operation(LEFT_TYPE& left, RIGHT_TYPE& right, RESULT_TYPE& result,
         common::ValueVector* leftValueVector, common::ValueVector* rightValueVector,
         common::ValueVector* resultValueVector, uint64_t /*resultPos*/, void* /*dataPtr*/) {
         OP::operation(left, right, result, *leftValueVector, *rightValueVector, *resultValueVector);
+    }
+};
+
+struct BinaryMapCreationFunctionWrapper {
+    template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename OP>
+    static void operation(LEFT_TYPE& left, RIGHT_TYPE& right, RESULT_TYPE& result,
+        common::ValueVector* leftValueVector, common::ValueVector* rightValueVector,
+        common::ValueVector* resultValueVector, uint64_t /*resultPos*/, void* dataPtr) {
+        OP::operation(left, right, result, *leftValueVector, *rightValueVector, *resultValueVector,
+            dataPtr);
     }
 };
 
@@ -5301,7 +6660,18 @@ struct BinaryUDFFunctionWrapper {
     }
 };
 
+struct BinarySelectWithBindDataWrapper {
+    template<typename LEFT_TYPE, typename RIGHT_TYPE, typename OP>
+    static void operation(LEFT_TYPE& left, RIGHT_TYPE& right, uint8_t& result,
+        common::ValueVector* leftValueVector, common::ValueVector* rightValueVector,
+        void* dataPtr) {
+        OP::operation(left, right, result, *leftValueVector, *rightValueVector, *leftValueVector,
+            dataPtr);
+    }
+};
+
 struct BinaryFunctionExecutor {
+
     template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC,
         typename OP_WRAPPER>
     static inline void executeOnValue(common::ValueVector& left, common::ValueVector& right,
@@ -5313,56 +6683,49 @@ struct BinaryFunctionExecutor {
             resPos, dataPtr);
     }
 
-    template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC,
-        typename OP_WRAPPER>
-    static void executeBothFlat(common::ValueVector& left, common::ValueVector& right,
-        common::ValueVector& result, void* dataPtr) {
-        auto lPos = left.state->selVector->selectedPositions[0];
-        auto rPos = right.state->selVector->selectedPositions[0];
-        auto resPos = result.state->selVector->selectedPositions[0];
-        result.setNull(resPos, left.isNull(lPos) || right.isNull(rPos));
-        if (!result.isNull(resPos)) {
-            executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                left, right, result, lPos, rPos, resPos, dataPtr);
-        }
+    static inline std::tuple<common::sel_t, common::sel_t, common::sel_t> getSelectedPositions(
+        common::SelectionVector* leftSelVector, common::SelectionVector* rightSelVector,
+        common::SelectionVector* resultSelVector, common::sel_t selPos, bool leftFlat,
+        bool rightFlat) {
+        common::sel_t lPos = (*leftSelVector)[leftFlat ? 0 : selPos];
+        common::sel_t rPos = (*rightSelVector)[rightFlat ? 0 : selPos];
+        common::sel_t resPos = (*resultSelVector)[leftFlat && rightFlat ? 0 : selPos];
+        return {lPos, rPos, resPos};
     }
 
     template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC,
         typename OP_WRAPPER>
-    static void executeFlatUnFlat(common::ValueVector& left, common::ValueVector& right,
-        common::ValueVector& result, void* dataPtr) {
-        auto lPos = left.state->selVector->selectedPositions[0];
-        if (left.isNull(lPos)) {
+    static void executeOnSelectedValues(common::ValueVector& left,
+        common::SelectionVector* leftSelVector, common::ValueVector& right,
+        common::SelectionVector* rightSelVector, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
+        const bool leftFlat = left.state->isFlat();
+        const bool rightFlat = right.state->isFlat();
+
+        const bool allNullsGuaranteed = (rightFlat && right.isNull((*rightSelVector)[0])) ||
+                                        (leftFlat && left.isNull((*leftSelVector)[0]));
+        if (allNullsGuaranteed) {
             result.setAllNull();
-        } else if (right.hasNoNullsGuarantee()) {
-            if (right.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < right.state->selVector->selectedSize; ++i) {
-                    executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        left, right, result, lPos, i, i, dataPtr);
-                }
-            } else {
-                for (auto i = 0u; i < right.state->selVector->selectedSize; ++i) {
-                    auto rPos = right.state->selVector->selectedPositions[i];
-                    executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        left, right, result, lPos, rPos, rPos, dataPtr);
-                }
-            }
         } else {
-            if (right.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < right.state->selVector->selectedSize; ++i) {
-                    result.setNull(i, right.isNull(i)); // left is always not null
-                    if (!result.isNull(i)) {
-                        executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            left, right, result, lPos, i, i, dataPtr);
-                    }
-                }
-            } else {
-                for (auto i = 0u; i < right.state->selVector->selectedSize; ++i) {
-                    auto rPos = right.state->selVector->selectedPositions[i];
-                    result.setNull(rPos, right.isNull(rPos)); // left is always not null
-                    if (!result.isNull(rPos)) {
-                        executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            left, right, result, lPos, rPos, rPos, dataPtr);
+            const bool noNullsGuaranteed = (leftFlat || left.hasNoNullsGuarantee()) &&
+                                           (rightFlat || right.hasNoNullsGuarantee());
+            if (noNullsGuaranteed) {
+                result.setAllNonNull();
+            }
+
+            const auto numSelectedValues =
+                leftFlat ? rightSelVector->getSelSize() : leftSelVector->getSelSize();
+            for (common::sel_t selPos = 0; selPos < numSelectedValues; ++selPos) {
+                auto [lPos, rPos, resPos] = getSelectedPositions(leftSelVector, rightSelVector,
+                    resultSelVector, selPos, leftFlat, rightFlat);
+                if (noNullsGuaranteed) {
+                    executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(left,
+                        right, result, lPos, rPos, resPos, dataPtr);
+                } else {
+                    result.setNull(resPos, left.isNull(lPos) || right.isNull(rPos));
+                    if (!result.isNull(resPos)) {
+                        executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(left,
+                            right, result, lPos, rPos, resPos, dataPtr);
                     }
                 }
             }
@@ -5371,154 +6734,27 @@ struct BinaryFunctionExecutor {
 
     template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC,
         typename OP_WRAPPER>
-    static void executeUnFlatFlat(common::ValueVector& left, common::ValueVector& right,
-        common::ValueVector& result, void* dataPtr) {
-        auto rPos = right.state->selVector->selectedPositions[0];
-        if (right.isNull(rPos)) {
-            result.setAllNull();
-        } else if (left.hasNoNullsGuarantee()) {
-            if (left.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < left.state->selVector->selectedSize; ++i) {
-                    executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        left, right, result, i, rPos, i, dataPtr);
-                }
-            } else {
-                for (auto i = 0u; i < left.state->selVector->selectedSize; ++i) {
-                    auto lPos = left.state->selVector->selectedPositions[i];
-                    executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        left, right, result, lPos, rPos, lPos, dataPtr);
-                }
-            }
-        } else {
-            if (left.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < left.state->selVector->selectedSize; ++i) {
-                    result.setNull(i, left.isNull(i)); // right is always not null
-                    if (!result.isNull(i)) {
-                        executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            left, right, result, i, rPos, i, dataPtr);
-                    }
-                }
-            } else {
-                for (auto i = 0u; i < left.state->selVector->selectedSize; ++i) {
-                    auto lPos = left.state->selVector->selectedPositions[i];
-                    result.setNull(lPos, left.isNull(lPos)); // right is always not null
-                    if (!result.isNull(lPos)) {
-                        executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            left, right, result, lPos, rPos, lPos, dataPtr);
-                    }
-                }
-            }
-        }
-    }
-
-    template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC,
-        typename OP_WRAPPER>
-    static void executeBothUnFlat(common::ValueVector& left, common::ValueVector& right,
-        common::ValueVector& result, void* dataPtr) {
-        KU_ASSERT(left.state == right.state);
-        if (left.hasNoNullsGuarantee() && right.hasNoNullsGuarantee()) {
-            if (result.state->selVector->isUnfiltered()) {
-                for (uint64_t i = 0; i < result.state->selVector->selectedSize; i++) {
-                    executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        left, right, result, i, i, i, dataPtr);
-                }
-            } else {
-                for (uint64_t i = 0; i < result.state->selVector->selectedSize; i++) {
-                    auto pos = result.state->selVector->selectedPositions[i];
-                    executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        left, right, result, pos, pos, pos, dataPtr);
-                }
-            }
-        } else {
-            if (result.state->selVector->isUnfiltered()) {
-                for (uint64_t i = 0; i < result.state->selVector->selectedSize; i++) {
-                    result.setNull(i, left.isNull(i) || right.isNull(i));
-                    if (!result.isNull(i)) {
-                        executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            left, right, result, i, i, i, dataPtr);
-                    }
-                }
-            } else {
-                for (uint64_t i = 0; i < result.state->selVector->selectedSize; i++) {
-                    auto pos = result.state->selVector->selectedPositions[i];
-                    result.setNull(pos, left.isNull(pos) || right.isNull(pos));
-                    if (!result.isNull(pos)) {
-                        executeOnValue<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            left, right, result, pos, pos, pos, dataPtr);
-                    }
-                }
-            }
-        }
-    }
-
-    template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC,
-        typename OP_WRAPPER>
-    static void executeSwitch(common::ValueVector& left, common::ValueVector& right,
-        common::ValueVector& result, void* dataPtr) {
+    static void executeSwitch(common::ValueVector& left, common::SelectionVector* leftSelVector,
+        common::ValueVector& right, common::SelectionVector* rightSelVector,
+        common::ValueVector& result, common::SelectionVector* resultSelVector, void* dataPtr) {
         result.resetAuxiliaryBuffer();
-        if (left.state->isFlat() && right.state->isFlat()) {
-            executeBothFlat<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                left, right, result, dataPtr);
-        } else if (left.state->isFlat() && !right.state->isFlat()) {
-            executeFlatUnFlat<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                left, right, result, dataPtr);
-        } else if (!left.state->isFlat() && right.state->isFlat()) {
-            executeUnFlatFlat<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                left, right, result, dataPtr);
-        } else if (!left.state->isFlat() && !right.state->isFlat()) {
-            executeBothUnFlat<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                left, right, result, dataPtr);
-        } else {
-            KU_ASSERT(false);
-        }
+        executeOnSelectedValues<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(left,
+            leftSelVector, right, rightSelVector, result, resultSelVector, dataPtr);
     }
 
     template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void execute(
-        common::ValueVector& left, common::ValueVector& right, common::ValueVector& result) {
-        executeSwitch<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, BinaryFunctionWrapper>(
-            left, right, result, nullptr /* dataPtr */);
-    }
-
-    template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void executeString(
-        common::ValueVector& left, common::ValueVector& right, common::ValueVector& result) {
-        executeSwitch<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, BinaryStringFunctionWrapper>(
-            left, right, result, nullptr /* dataPtr */);
-    }
-
-    template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void executeListStruct(
-        common::ValueVector& left, common::ValueVector& right, common::ValueVector& result) {
-        executeSwitch<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, BinaryListStructFunctionWrapper>(
-            left, right, result, nullptr /* dataPtr */);
-    }
-
-    template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void executeListExtract(
-        common::ValueVector& left, common::ValueVector& right, common::ValueVector& result) {
-        executeSwitch<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, BinaryListExtractFunctionWrapper>(
-            left, right, result, nullptr /* dataPtr */);
-    }
-
-    template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void executeComparison(
-        common::ValueVector& left, common::ValueVector& right, common::ValueVector& result) {
-        executeSwitch<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, BinaryComparisonFunctionWrapper>(
-            left, right, result, nullptr /* dataPtr */);
-    }
-
-    template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void executeUDF(common::ValueVector& left, common::ValueVector& right,
-        common::ValueVector& result, void* dataPtr) {
-        executeSwitch<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, BinaryUDFFunctionWrapper>(
-            left, right, result, dataPtr);
+    static void execute(common::ValueVector& left, common::SelectionVector* leftSelVector,
+        common::ValueVector& right, common::SelectionVector* rightSelVector,
+        common::ValueVector& result, common::SelectionVector* resultSelVector) {
+        executeSwitch<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC, BinaryFunctionWrapper>(left,
+            leftSelVector, right, rightSelVector, result, resultSelVector, nullptr /* dataPtr */);
     }
 
     struct BinarySelectWrapper {
         template<typename LEFT_TYPE, typename RIGHT_TYPE, typename OP>
         static inline void operation(LEFT_TYPE& left, RIGHT_TYPE& right, uint8_t& result,
-            common::ValueVector* /*leftValueVector*/, common::ValueVector* /*rightValueVector*/) {
+            common::ValueVector* /*leftValueVector*/, common::ValueVector* /*rightValueVector*/,
+            void* /*dataPtr*/) {
             OP::operation(left, right, result);
         }
     };
@@ -5526,7 +6762,8 @@ struct BinaryFunctionExecutor {
     struct BinaryComparisonSelectWrapper {
         template<typename LEFT_TYPE, typename RIGHT_TYPE, typename OP>
         static inline void operation(LEFT_TYPE& left, RIGHT_TYPE& right, uint8_t& result,
-            common::ValueVector* leftValueVector, common::ValueVector* rightValueVector) {
+            common::ValueVector* leftValueVector, common::ValueVector* rightValueVector,
+            void* /*dataPtr*/) {
             OP::operation(left, right, result, leftValueVector, rightValueVector);
         }
     };
@@ -5534,191 +6771,141 @@ struct BinaryFunctionExecutor {
     template<class LEFT_TYPE, class RIGHT_TYPE, class FUNC, typename SELECT_WRAPPER>
     static void selectOnValue(common::ValueVector& left, common::ValueVector& right, uint64_t lPos,
         uint64_t rPos, uint64_t resPos, uint64_t& numSelectedValues,
-        common::sel_t* selectedPositionsBuffer) {
+        std::span<common::sel_t> selectedPositionsBuffer, void* dataPtr) {
         uint8_t resultValue = 0;
         SELECT_WRAPPER::template operation<LEFT_TYPE, RIGHT_TYPE, FUNC>(
             ((LEFT_TYPE*)left.getData())[lPos], ((RIGHT_TYPE*)right.getData())[rPos], resultValue,
-            &left, &right);
+            &left, &right, dataPtr);
         selectedPositionsBuffer[numSelectedValues] = resPos;
         numSelectedValues += (resultValue == true);
     }
 
     template<class LEFT_TYPE, class RIGHT_TYPE, class FUNC, typename SELECT_WRAPPER>
-    static uint64_t selectBothFlat(common::ValueVector& left, common::ValueVector& right) {
-        auto lPos = left.state->selVector->selectedPositions[0];
-        auto rPos = right.state->selVector->selectedPositions[0];
+    static uint64_t selectBothFlat(common::ValueVector& left, common::ValueVector& right,
+        void* dataPtr) {
+        auto lPos = left.state->getSelVector()[0];
+        auto rPos = right.state->getSelVector()[0];
         uint8_t resultValue = 0;
         if (!left.isNull(lPos) && !right.isNull(rPos)) {
             SELECT_WRAPPER::template operation<LEFT_TYPE, RIGHT_TYPE, FUNC>(
                 ((LEFT_TYPE*)left.getData())[lPos], ((RIGHT_TYPE*)right.getData())[rPos],
-                resultValue, &left, &right);
+                resultValue, &left, &right, dataPtr);
         }
         return resultValue == true;
     }
 
     template<typename LEFT_TYPE, typename RIGHT_TYPE, typename FUNC, typename SELECT_WRAPPER>
-    static bool selectFlatUnFlat(
-        common::ValueVector& left, common::ValueVector& right, common::SelectionVector& selVector) {
-        auto lPos = left.state->selVector->selectedPositions[0];
+    static bool selectFlatUnFlat(common::ValueVector& left, common::ValueVector& right,
+        common::SelectionVector& selVector, void* dataPtr) {
+        auto lPos = left.state->getSelVector()[0];
         uint64_t numSelectedValues = 0;
-        auto selectedPositionsBuffer = selVector.getSelectedPositionsBuffer();
+        auto selectedPositionsBuffer = selVector.getMutableBuffer();
+        auto& rightSelVector = right.state->getSelVector();
         if (left.isNull(lPos)) {
             return numSelectedValues;
         } else if (right.hasNoNullsGuarantee()) {
-            if (right.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < right.state->selVector->selectedSize; ++i) {
-                    selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(
-                        left, right, lPos, i, i, numSelectedValues, selectedPositionsBuffer);
-                }
-            } else {
-                for (auto i = 0u; i < right.state->selVector->selectedSize; ++i) {
-                    auto rPos = right.state->selVector->selectedPositions[i];
-                    selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(
-                        left, right, lPos, rPos, rPos, numSelectedValues, selectedPositionsBuffer);
-                }
-            }
+            rightSelVector.forEach([&](auto i) {
+                selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(left, right, lPos, i, i,
+                    numSelectedValues, selectedPositionsBuffer, dataPtr);
+            });
         } else {
-            if (right.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < right.state->selVector->selectedSize; ++i) {
-                    if (!right.isNull(i)) {
-                        selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(
-                            left, right, lPos, i, i, numSelectedValues, selectedPositionsBuffer);
-                    }
+            rightSelVector.forEach([&](auto i) {
+                if (!right.isNull(i)) {
+                    selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(left, right, lPos, i,
+                        i, numSelectedValues, selectedPositionsBuffer, dataPtr);
                 }
-            } else {
-                for (auto i = 0u; i < right.state->selVector->selectedSize; ++i) {
-                    auto rPos = right.state->selVector->selectedPositions[i];
-                    if (!right.isNull(rPos)) {
-                        selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(left, right,
-                            lPos, rPos, rPos, numSelectedValues, selectedPositionsBuffer);
-                    }
-                }
-            }
+            });
         }
-        selVector.selectedSize = numSelectedValues;
+        selVector.setSelSize(numSelectedValues);
         return numSelectedValues > 0;
     }
 
     template<typename LEFT_TYPE, typename RIGHT_TYPE, typename FUNC, typename SELECT_WRAPPER>
-    static bool selectUnFlatFlat(
-        common::ValueVector& left, common::ValueVector& right, common::SelectionVector& selVector) {
-        auto rPos = right.state->selVector->selectedPositions[0];
+    static bool selectUnFlatFlat(common::ValueVector& left, common::ValueVector& right,
+        common::SelectionVector& selVector, void* dataPtr) {
+        auto rPos = right.state->getSelVector()[0];
         uint64_t numSelectedValues = 0;
-        auto selectedPositionsBuffer = selVector.getSelectedPositionsBuffer();
+        auto selectedPositionsBuffer = selVector.getMutableBuffer();
+        auto& leftSelVector = left.state->getSelVector();
         if (right.isNull(rPos)) {
             return numSelectedValues;
         } else if (left.hasNoNullsGuarantee()) {
-            if (left.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < left.state->selVector->selectedSize; ++i) {
-                    selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(
-                        left, right, i, rPos, i, numSelectedValues, selectedPositionsBuffer);
-                }
-            } else {
-                for (auto i = 0u; i < left.state->selVector->selectedSize; ++i) {
-                    auto lPos = left.state->selVector->selectedPositions[i];
-                    selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(
-                        left, right, lPos, rPos, lPos, numSelectedValues, selectedPositionsBuffer);
-                }
-            }
+            leftSelVector.forEach([&](auto i) {
+                selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(left, right, i, rPos, i,
+                    numSelectedValues, selectedPositionsBuffer, dataPtr);
+            });
         } else {
-            if (left.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < left.state->selVector->selectedSize; ++i) {
-                    if (!left.isNull(i)) {
-                        selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(
-                            left, right, i, rPos, i, numSelectedValues, selectedPositionsBuffer);
-                    }
+            leftSelVector.forEach([&](auto i) {
+                if (!left.isNull(i)) {
+                    selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(left, right, i, rPos,
+                        i, numSelectedValues, selectedPositionsBuffer, dataPtr);
                 }
-            } else {
-                for (auto i = 0u; i < left.state->selVector->selectedSize; ++i) {
-                    auto lPos = left.state->selVector->selectedPositions[i];
-                    if (!left.isNull(lPos)) {
-                        selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(left, right,
-                            lPos, rPos, lPos, numSelectedValues, selectedPositionsBuffer);
-                    }
-                }
-            }
+            });
         }
-        selVector.selectedSize = numSelectedValues;
+        selVector.setSelSize(numSelectedValues);
         return numSelectedValues > 0;
     }
 
     // Right, left, and result vectors share the same selectedPositions.
     template<class LEFT_TYPE, class RIGHT_TYPE, class FUNC, typename SELECT_WRAPPER>
-    static bool selectBothUnFlat(
-        common::ValueVector& left, common::ValueVector& right, common::SelectionVector& selVector) {
+    static bool selectBothUnFlat(common::ValueVector& left, common::ValueVector& right,
+        common::SelectionVector& selVector, void* dataPtr) {
         uint64_t numSelectedValues = 0;
-        auto selectedPositionsBuffer = selVector.getSelectedPositionsBuffer();
+        auto selectedPositionsBuffer = selVector.getMutableBuffer();
+        auto& leftSelVector = left.state->getSelVector();
         if (left.hasNoNullsGuarantee() && right.hasNoNullsGuarantee()) {
-            if (left.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < left.state->selVector->selectedSize; i++) {
-                    selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(
-                        left, right, i, i, i, numSelectedValues, selectedPositionsBuffer);
-                }
-            } else {
-                for (auto i = 0u; i < left.state->selVector->selectedSize; i++) {
-                    auto pos = left.state->selVector->selectedPositions[i];
-                    selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(
-                        left, right, pos, pos, pos, numSelectedValues, selectedPositionsBuffer);
-                }
-            }
+            leftSelVector.forEach([&](auto i) {
+                selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(left, right, i, i, i,
+                    numSelectedValues, selectedPositionsBuffer, dataPtr);
+            });
         } else {
-            if (left.state->selVector->isUnfiltered()) {
-                for (uint64_t i = 0; i < left.state->selVector->selectedSize; i++) {
-                    auto isNull = left.isNull(i) || right.isNull(i);
-                    if (!isNull) {
-                        selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(
-                            left, right, i, i, i, numSelectedValues, selectedPositionsBuffer);
-                    }
+            leftSelVector.forEach([&](auto i) {
+                auto isNull = left.isNull(i) || right.isNull(i);
+                if (!isNull) {
+                    selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(left, right, i, i, i,
+                        numSelectedValues, selectedPositionsBuffer, dataPtr);
                 }
-            } else {
-                for (uint64_t i = 0; i < left.state->selVector->selectedSize; i++) {
-                    auto pos = left.state->selVector->selectedPositions[i];
-                    auto isNull = left.isNull(pos) || right.isNull(pos);
-                    if (!isNull) {
-                        selectOnValue<LEFT_TYPE, RIGHT_TYPE, FUNC, SELECT_WRAPPER>(
-                            left, right, pos, pos, pos, numSelectedValues, selectedPositionsBuffer);
-                    }
-                }
-            }
+            });
         }
-        selVector.selectedSize = numSelectedValues;
+        selVector.setSelSize(numSelectedValues);
         return numSelectedValues > 0;
     }
 
     // BOOLEAN (AND, OR, XOR)
-    template<class LEFT_TYPE, class RIGHT_TYPE, class FUNC>
-    static bool select(
-        common::ValueVector& left, common::ValueVector& right, common::SelectionVector& selVector) {
+    template<class LEFT_TYPE, class RIGHT_TYPE, class FUNC,
+        typename OP_WRAPPER = BinarySelectWrapper>
+    static bool select(common::ValueVector& left, common::ValueVector& right,
+        common::SelectionVector& selVector, void* dataPtr) {
         if (left.state->isFlat() && right.state->isFlat()) {
-            return selectBothFlat<LEFT_TYPE, RIGHT_TYPE, FUNC, BinarySelectWrapper>(left, right);
+            return selectBothFlat<LEFT_TYPE, RIGHT_TYPE, FUNC, OP_WRAPPER>(left, right, dataPtr);
         } else if (left.state->isFlat() && !right.state->isFlat()) {
-            return selectFlatUnFlat<LEFT_TYPE, RIGHT_TYPE, FUNC, BinarySelectWrapper>(
-                left, right, selVector);
+            return selectFlatUnFlat<LEFT_TYPE, RIGHT_TYPE, FUNC, OP_WRAPPER>(left, right, selVector,
+                dataPtr);
         } else if (!left.state->isFlat() && right.state->isFlat()) {
-            return selectUnFlatFlat<LEFT_TYPE, RIGHT_TYPE, FUNC, BinarySelectWrapper>(
-                left, right, selVector);
+            return selectUnFlatFlat<LEFT_TYPE, RIGHT_TYPE, FUNC, OP_WRAPPER>(left, right, selVector,
+                dataPtr);
         } else {
-            return selectBothUnFlat<LEFT_TYPE, RIGHT_TYPE, FUNC, BinarySelectWrapper>(
-                left, right, selVector);
+            return selectBothUnFlat<LEFT_TYPE, RIGHT_TYPE, FUNC, OP_WRAPPER>(left, right, selVector,
+                dataPtr);
         }
     }
 
     // COMPARISON (GT, GTE, LT, LTE, EQ, NEQ)
     template<class LEFT_TYPE, class RIGHT_TYPE, class FUNC>
-    static bool selectComparison(
-        common::ValueVector& left, common::ValueVector& right, common::SelectionVector& selVector) {
+    static bool selectComparison(common::ValueVector& left, common::ValueVector& right,
+        common::SelectionVector& selVector, void* dataPtr) {
         if (left.state->isFlat() && right.state->isFlat()) {
-            return selectBothFlat<LEFT_TYPE, RIGHT_TYPE, FUNC, BinaryComparisonSelectWrapper>(
-                left, right);
+            return selectBothFlat<LEFT_TYPE, RIGHT_TYPE, FUNC, BinaryComparisonSelectWrapper>(left,
+                right, dataPtr);
         } else if (left.state->isFlat() && !right.state->isFlat()) {
             return selectFlatUnFlat<LEFT_TYPE, RIGHT_TYPE, FUNC, BinaryComparisonSelectWrapper>(
-                left, right, selVector);
+                left, right, selVector, dataPtr);
         } else if (!left.state->isFlat() && right.state->isFlat()) {
             return selectUnFlatFlat<LEFT_TYPE, RIGHT_TYPE, FUNC, BinaryComparisonSelectWrapper>(
-                left, right, selVector);
+                left, right, selVector, dataPtr);
         } else {
             return selectBothUnFlat<LEFT_TYPE, RIGHT_TYPE, FUNC, BinaryComparisonSelectWrapper>(
-                left, right, selVector);
+                left, right, selVector, dataPtr);
         }
     }
 };
@@ -5733,10 +6920,10 @@ namespace function {
 struct ConstFunctionExecutor {
 
     template<typename RESULT_TYPE, typename OP>
-    static void execute(common::ValueVector& result) {
+    static void execute(common::ValueVector& result, common::SelectionVector& sel) {
         KU_ASSERT(result.state->isFlat());
         auto resultValues = (RESULT_TYPE*)result.getData();
-        auto idx = result.state->selVector->selectedPositions[0];
+        auto idx = sel[0];
         KU_ASSERT(idx == 0);
         OP::operation(resultValues[idx]);
     }
@@ -5751,14 +6938,14 @@ namespace function {
 
 struct PointerFunctionExecutor {
     template<typename RESULT_TYPE, typename OP>
-    static void execute(common::ValueVector& result, void* dataPtr) {
-        if (result.state->selVector->isUnfiltered()) {
-            for (auto i = 0u; i < result.state->selVector->selectedSize; i++) {
+    static void execute(common::ValueVector& result, common::SelectionVector& sel, void* dataPtr) {
+        if (sel.isUnfiltered()) {
+            for (auto i = 0u; i < sel.getSelSize(); i++) {
                 OP::operation(result.getValue<RESULT_TYPE>(i), dataPtr);
             }
         } else {
-            for (auto i = 0u; i < result.state->selVector->selectedSize; i++) {
-                auto pos = result.state->selVector->selectedPositions[i];
+            for (auto i = 0u; i < sel.getSelSize(); i++) {
+                auto pos = sel[i];
                 OP::operation(result.getValue<RESULT_TYPE>(pos), dataPtr);
             }
         }
@@ -5785,6 +6972,14 @@ struct TernaryStringFunctionWrapper {
     static inline void operation(A_TYPE& a, B_TYPE& b, C_TYPE& c, RESULT_TYPE& result,
         void* /*aValueVector*/, void* resultValueVector, void* /*dataPtr*/) {
         OP::operation(a, b, c, result, *(common::ValueVector*)resultValueVector);
+    }
+};
+
+struct TernaryRegexFunctionWrapper {
+    template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename OP>
+    static inline void operation(A_TYPE& a, B_TYPE& b, C_TYPE& c, RESULT_TYPE& result,
+        void* /*aValueVector*/, void* resultValueVector, void* dataPtr) {
+        OP::operation(a, b, c, result, *(common::ValueVector*)resultValueVector, dataPtr);
     }
 };
 
@@ -5819,56 +7014,60 @@ struct TernaryFunctionExecutor {
 
     template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC,
         typename OP_WRAPPER>
-    static void executeAllFlat(common::ValueVector& a, common::ValueVector& b,
-        common::ValueVector& c, common::ValueVector& result, void* dataPtr) {
-        auto aPos = a.state->selVector->selectedPositions[0];
-        auto bPos = b.state->selVector->selectedPositions[0];
-        auto cPos = c.state->selVector->selectedPositions[0];
-        auto resPos = result.state->selVector->selectedPositions[0];
+    static void executeAllFlat(common::ValueVector& a, common::SelectionVector* aSelVector,
+        common::ValueVector& b, common::SelectionVector* bSelVector, common::ValueVector& c,
+        common::SelectionVector* cSelVector, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
+        auto aPos = (*aSelVector)[0];
+        auto bPos = (*bSelVector)[0];
+        auto cPos = (*cSelVector)[0];
+        auto resPos = (*resultSelVector)[0];
         result.setNull(resPos, a.isNull(aPos) || b.isNull(bPos) || c.isNull(cPos));
         if (!result.isNull(resPos)) {
-            executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                a, b, c, result, aPos, bPos, cPos, resPos, dataPtr);
+            executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c, result,
+                aPos, bPos, cPos, resPos, dataPtr);
         }
     }
 
     template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC,
         typename OP_WRAPPER>
-    static void executeFlatFlatUnflat(common::ValueVector& a, common::ValueVector& b,
-        common::ValueVector& c, common::ValueVector& result, void* dataPtr) {
-        auto aPos = a.state->selVector->selectedPositions[0];
-        auto bPos = b.state->selVector->selectedPositions[0];
+    static void executeFlatFlatUnflat(common::ValueVector& a, common::SelectionVector* aSelVector,
+        common::ValueVector& b, common::SelectionVector* bSelVector, common::ValueVector& c,
+        common::SelectionVector* cSelVector, common::ValueVector& result, common::SelectionVector*,
+        void* dataPtr) {
+        auto aPos = (*aSelVector)[0];
+        auto bPos = (*bSelVector)[0];
         if (a.isNull(aPos) || b.isNull(bPos)) {
             result.setAllNull();
         } else if (c.hasNoNullsGuarantee()) {
-            if (c.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < c.state->selVector->selectedSize; ++i) {
-                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        a, b, c, result, aPos, bPos, i, i, dataPtr);
+            if (cSelVector->isUnfiltered()) {
+                for (auto i = 0u; i < cSelVector->getSelSize(); ++i) {
+                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c,
+                        result, aPos, bPos, i, i, dataPtr);
                 }
             } else {
-                for (auto i = 0u; i < c.state->selVector->selectedSize; ++i) {
-                    auto pos = c.state->selVector->selectedPositions[i];
-                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        a, b, c, result, aPos, bPos, pos, pos, dataPtr);
+                for (auto i = 0u; i < cSelVector->getSelSize(); ++i) {
+                    auto pos = (*cSelVector)[i];
+                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c,
+                        result, aPos, bPos, pos, pos, dataPtr);
                 }
             }
         } else {
-            if (c.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < c.state->selVector->selectedSize; ++i) {
+            if (cSelVector->isUnfiltered()) {
+                for (auto i = 0u; i < cSelVector->getSelSize(); ++i) {
                     result.setNull(i, c.isNull(i));
                     if (!result.isNull(i)) {
-                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            a, b, c, result, aPos, bPos, i, i, dataPtr);
+                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b,
+                            c, result, aPos, bPos, i, i, dataPtr);
                     }
                 }
             } else {
-                for (auto i = 0u; i < c.state->selVector->selectedSize; ++i) {
-                    auto pos = c.state->selVector->selectedPositions[i];
+                for (auto i = 0u; i < cSelVector->getSelSize(); ++i) {
+                    auto pos = (*cSelVector)[i];
                     result.setNull(pos, c.isNull(pos));
                     if (!result.isNull(pos)) {
-                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            a, b, c, result, aPos, bPos, pos, pos, dataPtr);
+                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b,
+                            c, result, aPos, bPos, pos, pos, dataPtr);
                     }
                 }
             }
@@ -5877,41 +7076,43 @@ struct TernaryFunctionExecutor {
 
     template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC,
         typename OP_WRAPPER>
-    static void executeFlatUnflatUnflat(common::ValueVector& a, common::ValueVector& b,
-        common::ValueVector& c, common::ValueVector& result, void* dataPtr) {
-        KU_ASSERT(b.state == c.state);
-        auto aPos = a.state->selVector->selectedPositions[0];
+    static void executeFlatUnflatUnflat(common::ValueVector& a, common::SelectionVector* aSelVector,
+        common::ValueVector& b, common::SelectionVector* bSelVector, common::ValueVector& c,
+        [[maybe_unused]] common::SelectionVector* cSelVector, common::ValueVector& result,
+        common::SelectionVector*, void* dataPtr) {
+        KU_ASSERT(bSelVector == cSelVector);
+        auto aPos = (*aSelVector)[0];
         if (a.isNull(aPos)) {
             result.setAllNull();
         } else if (b.hasNoNullsGuarantee() && c.hasNoNullsGuarantee()) {
-            if (b.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < b.state->selVector->selectedSize; ++i) {
-                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        a, b, c, result, aPos, i, i, i, dataPtr);
+            if (bSelVector->isUnfiltered()) {
+                for (auto i = 0u; i < bSelVector->getSelSize(); ++i) {
+                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c,
+                        result, aPos, i, i, i, dataPtr);
                 }
             } else {
-                for (auto i = 0u; i < b.state->selVector->selectedSize; ++i) {
-                    auto pos = b.state->selVector->selectedPositions[i];
-                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        a, b, c, result, aPos, pos, pos, pos, dataPtr);
+                for (auto i = 0u; i < bSelVector->getSelSize(); ++i) {
+                    auto pos = (*bSelVector)[i];
+                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c,
+                        result, aPos, pos, pos, pos, dataPtr);
                 }
             }
         } else {
-            if (b.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < b.state->selVector->selectedSize; ++i) {
+            if (bSelVector->isUnfiltered()) {
+                for (auto i = 0u; i < bSelVector->getSelSize(); ++i) {
                     result.setNull(i, b.isNull(i) || c.isNull(i));
                     if (!result.isNull(i)) {
-                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            a, b, c, result, aPos, i, i, i, dataPtr);
+                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b,
+                            c, result, aPos, i, i, i, dataPtr);
                     }
                 }
             } else {
-                for (auto i = 0u; i < b.state->selVector->selectedSize; ++i) {
-                    auto pos = b.state->selVector->selectedPositions[i];
+                for (auto i = 0u; i < bSelVector->getSelSize(); ++i) {
+                    auto pos = (*bSelVector)[i];
                     result.setNull(pos, b.isNull(pos) || c.isNull(pos));
                     if (!result.isNull(pos)) {
-                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            a, b, c, result, aPos, pos, pos, pos, dataPtr);
+                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b,
+                            c, result, aPos, pos, pos, pos, dataPtr);
                     }
                 }
             }
@@ -5920,41 +7121,43 @@ struct TernaryFunctionExecutor {
 
     template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC,
         typename OP_WRAPPER>
-    static void executeFlatUnflatFlat(common::ValueVector& a, common::ValueVector& b,
-        common::ValueVector& c, common::ValueVector& result, void* dataPtr) {
-        auto aPos = a.state->selVector->selectedPositions[0];
-        auto cPos = c.state->selVector->selectedPositions[0];
+    static void executeFlatUnflatFlat(common::ValueVector& a, common::SelectionVector* aSelVector,
+        common::ValueVector& b, common::SelectionVector* bSelVector, common::ValueVector& c,
+        common::SelectionVector* cSelVector, common::ValueVector& result, common::SelectionVector*,
+        void* dataPtr) {
+        auto aPos = (*aSelVector)[0];
+        auto cPos = (*cSelVector)[0];
         if (a.isNull(aPos) || c.isNull(cPos)) {
             result.setAllNull();
         } else if (b.hasNoNullsGuarantee()) {
-            if (b.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < b.state->selVector->selectedSize; ++i) {
-                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        a, b, c, result, aPos, i, cPos, i, dataPtr);
+            if (bSelVector->isUnfiltered()) {
+                for (auto i = 0u; i < bSelVector->getSelSize(); ++i) {
+                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c,
+                        result, aPos, i, cPos, i, dataPtr);
                 }
             } else {
-                for (auto i = 0u; i < b.state->selVector->selectedSize; ++i) {
-                    auto pos = b.state->selVector->selectedPositions[i];
-                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        a, b, c, result, aPos, pos, cPos, pos, dataPtr);
+                for (auto i = 0u; i < bSelVector->getSelSize(); ++i) {
+                    auto pos = (*bSelVector)[i];
+                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c,
+                        result, aPos, pos, cPos, pos, dataPtr);
                 }
             }
         } else {
-            if (b.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < b.state->selVector->selectedSize; ++i) {
+            if (bSelVector->isUnfiltered()) {
+                for (auto i = 0u; i < bSelVector->getSelSize(); ++i) {
                     result.setNull(i, b.isNull(i));
                     if (!result.isNull(i)) {
-                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            a, b, c, result, aPos, i, cPos, i, dataPtr);
+                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b,
+                            c, result, aPos, i, cPos, i, dataPtr);
                     }
                 }
             } else {
-                for (auto i = 0u; i < b.state->selVector->selectedSize; ++i) {
-                    auto pos = b.state->selVector->selectedPositions[i];
+                for (auto i = 0u; i < bSelVector->getSelSize(); ++i) {
+                    auto pos = (*bSelVector)[i];
                     result.setNull(pos, b.isNull(pos));
                     if (!result.isNull(pos)) {
-                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            a, b, c, result, aPos, pos, cPos, pos, dataPtr);
+                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b,
+                            c, result, aPos, pos, cPos, pos, dataPtr);
                     }
                 }
             }
@@ -5963,38 +7166,40 @@ struct TernaryFunctionExecutor {
 
     template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC,
         typename OP_WRAPPER>
-    static void executeAllUnFlat(common::ValueVector& a, common::ValueVector& b,
-        common::ValueVector& c, common::ValueVector& result, void* dataPtr) {
-        KU_ASSERT(a.state == b.state && b.state == c.state);
+    static void executeAllUnFlat(common::ValueVector& a, common::SelectionVector* aSelVector,
+        common::ValueVector& b, [[maybe_unused]] common::SelectionVector* bSelVector,
+        common::ValueVector& c, [[maybe_unused]] common::SelectionVector* cSelVector,
+        common::ValueVector& result, common::SelectionVector*, void* dataPtr) {
+        KU_ASSERT(aSelVector == bSelVector && bSelVector == cSelVector);
         if (a.hasNoNullsGuarantee() && b.hasNoNullsGuarantee() && c.hasNoNullsGuarantee()) {
-            if (a.state->selVector->isUnfiltered()) {
-                for (uint64_t i = 0; i < a.state->selVector->selectedSize; i++) {
-                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        a, b, c, result, i, i, i, i, dataPtr);
+            if (aSelVector->isUnfiltered()) {
+                for (uint64_t i = 0; i < aSelVector->getSelSize(); i++) {
+                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c,
+                        result, i, i, i, i, dataPtr);
                 }
             } else {
-                for (uint64_t i = 0; i < a.state->selVector->selectedSize; i++) {
-                    auto pos = a.state->selVector->selectedPositions[i];
-                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        a, b, c, result, pos, pos, pos, pos, dataPtr);
+                for (uint64_t i = 0; i < aSelVector->getSelSize(); i++) {
+                    auto pos = (*aSelVector)[i];
+                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c,
+                        result, pos, pos, pos, pos, dataPtr);
                 }
             }
         } else {
-            if (a.state->selVector->isUnfiltered()) {
-                for (uint64_t i = 0; i < a.state->selVector->selectedSize; i++) {
+            if (aSelVector->isUnfiltered()) {
+                for (uint64_t i = 0; i < aSelVector->getSelSize(); i++) {
                     result.setNull(i, a.isNull(i) || b.isNull(i) || c.isNull(i));
                     if (!result.isNull(i)) {
-                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            a, b, c, result, i, i, i, i, dataPtr);
+                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b,
+                            c, result, i, i, i, i, dataPtr);
                     }
                 }
             } else {
-                for (uint64_t i = 0; i < a.state->selVector->selectedSize; i++) {
-                    auto pos = a.state->selVector->selectedPositions[i];
+                for (uint64_t i = 0; i < aSelVector->getSelSize(); i++) {
+                    auto pos = (*aSelVector)[i];
                     result.setNull(pos, a.isNull(pos) || b.isNull(pos) || c.isNull(pos));
                     if (!result.isNull(pos)) {
-                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            a, b, c, result, pos, pos, pos, pos, dataPtr);
+                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b,
+                            c, result, pos, pos, pos, pos, dataPtr);
                     }
                 }
             }
@@ -6003,41 +7208,43 @@ struct TernaryFunctionExecutor {
 
     template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC,
         typename OP_WRAPPER>
-    static void executeUnflatFlatFlat(common::ValueVector& a, common::ValueVector& b,
-        common::ValueVector& c, common::ValueVector& result, void* dataPtr) {
-        auto bPos = b.state->selVector->selectedPositions[0];
-        auto cPos = c.state->selVector->selectedPositions[0];
+    static void executeUnflatFlatFlat(common::ValueVector& a, common::SelectionVector* aSelVector,
+        common::ValueVector& b, common::SelectionVector* bSelVector, common::ValueVector& c,
+        common::SelectionVector* cSelVector, common::ValueVector& result, common::SelectionVector*,
+        void* dataPtr) {
+        auto bPos = (*bSelVector)[0];
+        auto cPos = (*cSelVector)[0];
         if (b.isNull(bPos) || c.isNull(cPos)) {
             result.setAllNull();
         } else if (a.hasNoNullsGuarantee()) {
-            if (a.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < a.state->selVector->selectedSize; ++i) {
-                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        a, b, c, result, i, bPos, cPos, i, dataPtr);
+            if (aSelVector->isUnfiltered()) {
+                for (auto i = 0u; i < aSelVector->getSelSize(); ++i) {
+                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c,
+                        result, i, bPos, cPos, i, dataPtr);
                 }
             } else {
-                for (auto i = 0u; i < a.state->selVector->selectedSize; ++i) {
-                    auto pos = a.state->selVector->selectedPositions[i];
-                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        a, b, c, result, pos, bPos, cPos, pos, dataPtr);
+                for (auto i = 0u; i < aSelVector->getSelSize(); ++i) {
+                    auto pos = (*aSelVector)[i];
+                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c,
+                        result, pos, bPos, cPos, pos, dataPtr);
                 }
             }
         } else {
-            if (a.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < a.state->selVector->selectedSize; ++i) {
+            if (aSelVector->isUnfiltered()) {
+                for (auto i = 0u; i < aSelVector->getSelSize(); ++i) {
                     result.setNull(i, a.isNull(i));
                     if (!result.isNull(i)) {
-                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            a, b, c, result, i, bPos, cPos, i, dataPtr);
+                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b,
+                            c, result, i, bPos, cPos, i, dataPtr);
                     }
                 }
             } else {
-                for (auto i = 0u; i < a.state->selVector->selectedSize; ++i) {
-                    auto pos = a.state->selVector->selectedPositions[i];
+                for (auto i = 0u; i < aSelVector->getSelSize(); ++i) {
+                    auto pos = (*aSelVector)[i];
                     result.setNull(pos, a.isNull(pos));
                     if (!result.isNull(pos)) {
-                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            a, b, c, result, pos, bPos, cPos, pos, dataPtr);
+                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b,
+                            c, result, pos, bPos, cPos, pos, dataPtr);
                     }
                 }
             }
@@ -6046,41 +7253,43 @@ struct TernaryFunctionExecutor {
 
     template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC,
         typename OP_WRAPPER>
-    static void executeUnflatFlatUnflat(common::ValueVector& a, common::ValueVector& b,
-        common::ValueVector& c, common::ValueVector& result, void* dataPtr) {
-        KU_ASSERT(a.state == c.state);
-        auto bPos = b.state->selVector->selectedPositions[0];
+    static void executeUnflatFlatUnflat(common::ValueVector& a, common::SelectionVector* aSelVector,
+        common::ValueVector& b, common::SelectionVector* bSelVector, common::ValueVector& c,
+        [[maybe_unused]] common::SelectionVector* cSelVector, common::ValueVector& result,
+        common::SelectionVector*, void* dataPtr) {
+        KU_ASSERT(aSelVector == cSelVector);
+        auto bPos = (*bSelVector)[0];
         if (b.isNull(bPos)) {
             result.setAllNull();
         } else if (a.hasNoNullsGuarantee() && c.hasNoNullsGuarantee()) {
-            if (a.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < a.state->selVector->selectedSize; ++i) {
-                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        a, b, c, result, i, bPos, i, i, dataPtr);
+            if (aSelVector->isUnfiltered()) {
+                for (auto i = 0u; i < aSelVector->getSelSize(); ++i) {
+                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c,
+                        result, i, bPos, i, i, dataPtr);
                 }
             } else {
-                for (auto i = 0u; i < a.state->selVector->selectedSize; ++i) {
-                    auto pos = a.state->selVector->selectedPositions[i];
-                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        a, b, c, result, pos, bPos, pos, pos, dataPtr);
+                for (auto i = 0u; i < aSelVector->getSelSize(); ++i) {
+                    auto pos = (*aSelVector)[i];
+                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c,
+                        result, pos, bPos, pos, pos, dataPtr);
                 }
             }
         } else {
-            if (a.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < a.state->selVector->selectedSize; ++i) {
+            if (aSelVector->isUnfiltered()) {
+                for (auto i = 0u; i < aSelVector->getSelSize(); ++i) {
                     result.setNull(i, a.isNull(i) || c.isNull(i));
                     if (!result.isNull(i)) {
-                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            a, b, c, result, i, bPos, i, i, dataPtr);
+                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b,
+                            c, result, i, bPos, i, i, dataPtr);
                     }
                 }
             } else {
-                for (auto i = 0u; i < a.state->selVector->selectedSize; ++i) {
-                    auto pos = b.state->selVector->selectedPositions[i];
+                for (auto i = 0u; i < aSelVector->getSelSize(); ++i) {
+                    auto pos = (*bSelVector)[i];
                     result.setNull(pos, a.isNull(pos) || c.isNull(pos));
                     if (!result.isNull(pos)) {
-                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            a, b, c, result, pos, bPos, pos, pos, dataPtr);
+                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b,
+                            c, result, pos, bPos, pos, pos, dataPtr);
                     }
                 }
             }
@@ -6089,41 +7298,43 @@ struct TernaryFunctionExecutor {
 
     template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC,
         typename OP_WRAPPER>
-    static void executeUnflatUnFlatFlat(common::ValueVector& a, common::ValueVector& b,
-        common::ValueVector& c, common::ValueVector& result, void* dataPtr) {
-        KU_ASSERT(a.state == b.state);
-        auto cPos = c.state->selVector->selectedPositions[0];
+    static void executeUnflatUnFlatFlat(common::ValueVector& a, common::SelectionVector* aSelVector,
+        common::ValueVector& b, [[maybe_unused]] common::SelectionVector* bSelVector,
+        common::ValueVector& c, common::SelectionVector* cSelVector, common::ValueVector& result,
+        common::SelectionVector*, void* dataPtr) {
+        KU_ASSERT(aSelVector == bSelVector);
+        auto cPos = (*cSelVector)[0];
         if (c.isNull(cPos)) {
             result.setAllNull();
         } else if (a.hasNoNullsGuarantee() && b.hasNoNullsGuarantee()) {
-            if (a.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < a.state->selVector->selectedSize; ++i) {
-                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        a, b, c, result, i, i, cPos, i, dataPtr);
+            if (aSelVector->isUnfiltered()) {
+                for (auto i = 0u; i < aSelVector->getSelSize(); ++i) {
+                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c,
+                        result, i, i, cPos, i, dataPtr);
                 }
             } else {
-                for (auto i = 0u; i < a.state->selVector->selectedSize; ++i) {
-                    auto pos = a.state->selVector->selectedPositions[i];
-                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                        a, b, c, result, pos, pos, cPos, pos, dataPtr);
+                for (auto i = 0u; i < aSelVector->getSelSize(); ++i) {
+                    auto pos = (*aSelVector)[i];
+                    executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b, c,
+                        result, pos, pos, cPos, pos, dataPtr);
                 }
             }
         } else {
-            if (a.state->selVector->isUnfiltered()) {
-                for (auto i = 0u; i < a.state->selVector->selectedSize; ++i) {
+            if (aSelVector->isUnfiltered()) {
+                for (auto i = 0u; i < aSelVector->getSelSize(); ++i) {
                     result.setNull(i, a.isNull(i) || b.isNull(i));
                     if (!result.isNull(i)) {
-                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            a, b, c, result, i, i, cPos, i, dataPtr);
+                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b,
+                            c, result, i, i, cPos, i, dataPtr);
                     }
                 }
             } else {
-                for (auto i = 0u; i < a.state->selVector->selectedSize; ++i) {
-                    auto pos = a.state->selVector->selectedPositions[i];
+                for (auto i = 0u; i < aSelVector->getSelSize(); ++i) {
+                    auto pos = (*aSelVector)[i];
                     result.setNull(pos, a.isNull(pos) || b.isNull(pos));
                     if (!result.isNull(pos)) {
-                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            a, b, c, result, pos, pos, cPos, pos, dataPtr);
+                        executeOnValue<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, b,
+                            c, result, pos, pos, cPos, pos, dataPtr);
                     }
                 }
             }
@@ -6132,68 +7343,75 @@ struct TernaryFunctionExecutor {
 
     template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC,
         typename OP_WRAPPER>
-    static void executeSwitch(common::ValueVector& a, common::ValueVector& b,
-        common::ValueVector& c, common::ValueVector& result, void* dataPtr) {
+    static void executeSwitch(common::ValueVector& a, common::SelectionVector* aSelVector,
+        common::ValueVector& b, common::SelectionVector* bSelVector, common::ValueVector& c,
+        common::SelectionVector* cSelVector, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
         result.resetAuxiliaryBuffer();
         if (a.state->isFlat() && b.state->isFlat() && c.state->isFlat()) {
-            executeAllFlat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                a, b, c, result, dataPtr);
+            executeAllFlat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, aSelVector, b,
+                bSelVector, c, cSelVector, result, resultSelVector, dataPtr);
         } else if (a.state->isFlat() && b.state->isFlat() && !c.state->isFlat()) {
-            executeFlatFlatUnflat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                a, b, c, result, dataPtr);
+            executeFlatFlatUnflat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a,
+                aSelVector, b, bSelVector, c, cSelVector, result, resultSelVector, dataPtr);
         } else if (a.state->isFlat() && !b.state->isFlat() && !c.state->isFlat()) {
-            executeFlatUnflatUnflat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                a, b, c, result, dataPtr);
+            executeFlatUnflatUnflat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a,
+                aSelVector, b, bSelVector, c, cSelVector, result, resultSelVector, dataPtr);
         } else if (a.state->isFlat() && !b.state->isFlat() && c.state->isFlat()) {
-            executeFlatUnflatFlat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                a, b, c, result, dataPtr);
+            executeFlatUnflatFlat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a,
+                aSelVector, b, bSelVector, c, cSelVector, result, resultSelVector, dataPtr);
         } else if (!a.state->isFlat() && !b.state->isFlat() && !c.state->isFlat()) {
-            executeAllUnFlat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                a, b, c, result, dataPtr);
+            executeAllUnFlat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a, aSelVector,
+                b, bSelVector, c, cSelVector, result, resultSelVector, dataPtr);
         } else if (!a.state->isFlat() && !b.state->isFlat() && c.state->isFlat()) {
-            executeUnflatUnFlatFlat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                a, b, c, result, dataPtr);
+            executeUnflatUnFlatFlat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a,
+                aSelVector, b, bSelVector, c, cSelVector, result, resultSelVector, dataPtr);
         } else if (!a.state->isFlat() && b.state->isFlat() && c.state->isFlat()) {
-            executeUnflatFlatFlat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                a, b, c, result, dataPtr);
+            executeUnflatFlatFlat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a,
+                aSelVector, b, bSelVector, c, cSelVector, result, resultSelVector, dataPtr);
         } else if (!a.state->isFlat() && b.state->isFlat() && !c.state->isFlat()) {
-            executeUnflatFlatUnflat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                a, b, c, result, dataPtr);
+            executeUnflatFlatUnflat<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(a,
+                aSelVector, b, bSelVector, c, cSelVector, result, resultSelVector, dataPtr);
         } else {
             KU_ASSERT(false);
         }
     }
-
-    template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void execute(common::ValueVector& a, common::ValueVector& b, common::ValueVector& c,
-        common::ValueVector& result) {
-        executeSwitch<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, TernaryFunctionWrapper>(
-            a, b, c, result, nullptr /* dataPtr */);
-    }
-
-    template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void executeString(common::ValueVector& a, common::ValueVector& b,
-        common::ValueVector& c, common::ValueVector& result) {
-        executeSwitch<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, TernaryStringFunctionWrapper>(
-            a, b, c, result, nullptr /* dataPtr */);
-    }
-
-    template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void executeListStruct(common::ValueVector& a, common::ValueVector& b,
-        common::ValueVector& c, common::ValueVector& result) {
-        executeSwitch<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, TernaryListFunctionWrapper>(
-            a, b, c, result, nullptr /* dataPtr */);
-    }
-
-    template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void executeUDF(common::ValueVector& a, common::ValueVector& b, common::ValueVector& c,
-        common::ValueVector& result, void* dataPtr) {
-        executeSwitch<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC, TernaryUDFFunctionWrapper>(
-            a, b, c, result, dataPtr);
-    }
 };
 
 } // namespace function
+} // namespace kuzu
+
+
+namespace kuzu {
+namespace storage {
+class Table;
+}
+
+namespace main {
+
+class ClientContext;
+class KUZU_API StorageDriver {
+public:
+    explicit StorageDriver(Database* database);
+
+    ~StorageDriver();
+
+    void scan(const std::string& nodeName, const std::string& propertyName,
+        common::offset_t* offsets, size_t numOffsets, uint8_t* result, size_t numThreads);
+
+    // TODO: Should merge following two functions into a single one.
+    uint64_t getNumNodes(const std::string& nodeName) const;
+    uint64_t getNumRels(const std::string& relName) const;
+
+private:
+    void scanColumn(storage::Table* table, common::column_id_t columnID,
+        const common::offset_t* offsets, size_t size, uint8_t* result) const;
+
+private:
+    std::unique_ptr<ClientContext> clientContext;
+};
+
+} // namespace main
 } // namespace kuzu
 
 
@@ -6216,6 +7434,16 @@ struct UnaryFunctionWrapper {
     }
 };
 
+struct UnarySequenceFunctionWrapper {
+    template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC>
+    static inline void operation(void* inputVector, uint64_t inputPos, void* resultVector,
+        uint64_t /* resultPos */, void* dataPtr) {
+        auto& inputVector_ = *(common::ValueVector*)inputVector;
+        auto& resultVector_ = *(common::ValueVector*)resultVector;
+        FUNC::operation(inputVector_.getValue<OPERAND_TYPE>(inputPos), resultVector_, dataPtr);
+    }
+};
+
 struct UnaryStringFunctionWrapper {
     template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC>
     static void operation(void* inputVector, uint64_t inputPos, void* resultVector,
@@ -6227,15 +7455,26 @@ struct UnaryStringFunctionWrapper {
     }
 };
 
+struct UnaryStructFunctionWrapper {
+    template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC>
+    static void operation(void* /*inputVector*/, uint64_t /*inputPos*/, void* resultVector,
+        uint64_t resultPos, void* dataPtr) {
+        auto& resultVector_ = *(common::ValueVector*)resultVector;
+        FUNC::operation(resultVector_.getValue<RESULT_TYPE>(resultPos), resultVector_, dataPtr);
+    }
+};
+
 struct UnaryCastStringFunctionWrapper {
     template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC>
     static void operation(void* inputVector, uint64_t inputPos, void* resultVector,
         uint64_t resultPos, void* dataPtr) {
         auto& inputVector_ = *(common::ValueVector*)inputVector;
         auto resultVector_ = (common::ValueVector*)resultVector;
+        // TODO(Ziyi): the reinterpret_cast is not safe since we don't always pass
+        // CastFunctionBindData
         FUNC::operation(inputVector_.getValue<OPERAND_TYPE>(inputPos),
             resultVector_->getValue<RESULT_TYPE>(resultPos), resultVector_, inputPos,
-            &reinterpret_cast<CastFunctionBindData*>(dataPtr)->csvConfig.option);
+            &reinterpret_cast<CastFunctionBindData*>(dataPtr)->option);
     }
 };
 
@@ -6261,15 +7500,14 @@ struct UnaryCastFunctionWrapper {
     }
 };
 
-struct UnaryRdfVariantCastFunctionWrapper {
+struct UnaryCastUnionFunctionWrapper {
     template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC>
     static void operation(void* inputVector, uint64_t inputPos, void* resultVector,
-        uint64_t resultPos, void* /*dataPtr*/) {
+        uint64_t resultPos, void* dataPtr) {
         auto& inputVector_ = *(common::ValueVector*)inputVector;
         auto& resultVector_ = *(common::ValueVector*)resultVector;
-        FUNC::template operation<OPERAND_TYPE, RESULT_TYPE>(
-            inputVector_.getValue<OPERAND_TYPE>(inputPos), inputVector_, inputPos,
-            resultVector_.getValue<RESULT_TYPE>(resultPos), resultVector_, resultPos);
+        FUNC::operation(inputVector_.getValue<OPERAND_TYPE>(inputPos),
+            resultVector_.getValue<RESULT_TYPE>(resultPos), inputVector_, resultVector_, dataPtr);
     }
 };
 
@@ -6284,394 +7522,561 @@ struct UnaryUDFFunctionWrapper {
     }
 };
 
-struct CastFixedListToListFunctionExecutor {
-    template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC, typename OP_WRAPPER>
-    static void executeSwitch(
-        common::ValueVector& operand, common::ValueVector& result, void* dataPtr) {
-        auto numOfEntries = reinterpret_cast<CastFunctionBindData*>(dataPtr)->numOfEntries;
-        auto numValuesPerList = common::FixedListType::getNumValuesInList(&operand.dataType);
-
-        for (auto i = 0u; i < numOfEntries; i++) {
-            if (!operand.isNull(i)) {
-                for (auto j = 0u; j < numValuesPerList; j++) {
-                    OP_WRAPPER::template operation<OPERAND_TYPE, RESULT_TYPE, FUNC>(
-                        (void*)(&operand), i * numValuesPerList + j, (void*)(&result),
-                        i * numValuesPerList + j, nullptr);
-                }
-            }
-        }
-    }
-};
-
-struct CastChildFunctionExecutor {
-    template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC, typename OP_WRAPPER>
-    static void executeSwitch(
-        common::ValueVector& operand, common::ValueVector& result, void* dataPtr) {
-        auto numOfEntries = reinterpret_cast<CastFunctionBindData*>(dataPtr)->numOfEntries;
-        for (auto i = 0u; i < numOfEntries; i++) {
-            result.setNull(i, operand.isNull(i));
-            if (!result.isNull(i)) {
-                OP_WRAPPER::template operation<OPERAND_TYPE, RESULT_TYPE, FUNC>(
-                    (void*)(&operand), i, (void*)(&result), i, dataPtr);
-            }
-        }
-    }
-};
-
 struct UnaryFunctionExecutor {
+
     template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC, typename OP_WRAPPER>
     static void executeOnValue(common::ValueVector& inputVector, uint64_t inputPos,
         common::ValueVector& resultVector, uint64_t resultPos, void* dataPtr) {
-        OP_WRAPPER::template operation<OPERAND_TYPE, RESULT_TYPE, FUNC>(
-            (void*)&inputVector, inputPos, (void*)&resultVector, resultPos, dataPtr);
+        OP_WRAPPER::template operation<OPERAND_TYPE, RESULT_TYPE, FUNC>((void*)&inputVector,
+            inputPos, (void*)&resultVector, resultPos, dataPtr);
+    }
+
+    static std::pair<common::sel_t, common::sel_t> getSelectedPos(common::idx_t selIdx,
+        common::SelectionVector* operandSelVector, common::SelectionVector* resultSelVector,
+        bool operandIsUnfiltered, bool resultIsUnfiltered) {
+        common::sel_t operandPos = operandIsUnfiltered ? selIdx : (*operandSelVector)[selIdx];
+        common::sel_t resultPos = resultIsUnfiltered ? selIdx : (*resultSelVector)[selIdx];
+        return {operandPos, resultPos};
     }
 
     template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC, typename OP_WRAPPER>
-    static void executeSwitch(
-        common::ValueVector& operand, common::ValueVector& result, void* dataPtr) {
-        result.resetAuxiliaryBuffer();
-        if (operand.state->isFlat()) {
-            auto inputPos = operand.state->selVector->selectedPositions[0];
-            auto resultPos = result.state->selVector->selectedPositions[0];
-            result.setNull(resultPos, operand.isNull(inputPos));
-            if (!result.isNull(resultPos)) {
-                executeOnValue<OPERAND_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                    operand, inputPos, result, resultPos, dataPtr);
-            }
-        } else {
-            if (operand.hasNoNullsGuarantee()) {
-                if (operand.state->selVector->isUnfiltered()) {
-                    for (auto i = 0u; i < operand.state->selVector->selectedSize; i++) {
-                        executeOnValue<OPERAND_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            operand, i, result, i, dataPtr);
-                    }
-                } else {
-                    for (auto i = 0u; i < operand.state->selVector->selectedSize; i++) {
-                        auto pos = operand.state->selVector->selectedPositions[i];
-                        executeOnValue<OPERAND_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                            operand, pos, result, pos, dataPtr);
-                    }
-                }
+    static void executeOnSelectedValues(common::ValueVector& operand,
+        common::SelectionVector* operandSelVector, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
+        const bool noNullsGuaranteed = operand.hasNoNullsGuarantee();
+        if (noNullsGuaranteed) {
+            result.setAllNonNull();
+        }
+
+        const bool operandIsUnfiltered = operandSelVector->isUnfiltered();
+        const bool resultIsUnfiltered = resultSelVector->isUnfiltered();
+
+        for (auto i = 0u; i < operandSelVector->getSelSize(); i++) {
+            const auto [operandPos, resultPos] = getSelectedPos(i, operandSelVector,
+                resultSelVector, operandIsUnfiltered, resultIsUnfiltered);
+            if (noNullsGuaranteed) {
+                executeOnValue<OPERAND_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(operand, operandPos,
+                    result, resultPos, dataPtr);
             } else {
-                if (operand.state->selVector->isUnfiltered()) {
-                    for (auto i = 0u; i < operand.state->selVector->selectedSize; i++) {
-                        result.setNull(i, operand.isNull(i));
-                        if (!result.isNull(i)) {
-                            executeOnValue<OPERAND_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                                operand, i, result, i, dataPtr);
-                        }
-                    }
-                } else {
-                    for (auto i = 0u; i < operand.state->selVector->selectedSize; i++) {
-                        auto pos = operand.state->selVector->selectedPositions[i];
-                        result.setNull(pos, operand.isNull(pos));
-                        if (!result.isNull(pos)) {
-                            executeOnValue<OPERAND_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(
-                                operand, pos, result, pos, dataPtr);
-                        }
-                    }
+                result.setNull(resultPos, operand.isNull(operandPos));
+                if (!result.isNull(resultPos)) {
+                    executeOnValue<OPERAND_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(operand, operandPos,
+                        result, resultPos, dataPtr);
                 }
             }
         }
     }
 
-    template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void execute(common::ValueVector& operand, common::ValueVector& result) {
-        executeSwitch<OPERAND_TYPE, RESULT_TYPE, FUNC, UnaryFunctionWrapper>(
-            operand, result, nullptr /* dataPtr */);
+    template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC, typename OP_WRAPPER>
+    static void executeSwitch(common::ValueVector& operand,
+        common::SelectionVector* operandSelVector, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
+        result.resetAuxiliaryBuffer();
+        if (operand.state->isFlat()) {
+            auto inputPos = (*operandSelVector)[0];
+            auto resultPos = (*resultSelVector)[0];
+            result.setNull(resultPos, operand.isNull(inputPos));
+            if (!result.isNull(resultPos)) {
+                executeOnValue<OPERAND_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(operand, inputPos,
+                    result, resultPos, dataPtr);
+            }
+        } else {
+            executeOnSelectedValues<OPERAND_TYPE, RESULT_TYPE, FUNC, OP_WRAPPER>(operand,
+                operandSelVector, result, resultSelVector, dataPtr);
+        }
     }
 
     template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void executeUDF(
-        common::ValueVector& operand, common::ValueVector& result, void* dataPtr) {
-        executeSwitch<OPERAND_TYPE, RESULT_TYPE, FUNC, UnaryUDFFunctionWrapper>(
-            operand, result, dataPtr);
+    static void execute(common::ValueVector& operand, common::SelectionVector* operandSelVector,
+        common::ValueVector& result, common::SelectionVector* resultSelVector) {
+        executeSwitch<OPERAND_TYPE, RESULT_TYPE, FUNC, UnaryFunctionWrapper>(operand,
+            operandSelVector, result, resultSelVector, nullptr /* dataPtr */);
+    }
+
+    template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC>
+    static void executeSequence(common::ValueVector& operand,
+        common::SelectionVector* operandSelVector, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
+        result.resetAuxiliaryBuffer();
+        auto inputPos = (*operandSelVector)[0];
+        auto resultPos = (*resultSelVector)[0];
+        executeOnValue<OPERAND_TYPE, RESULT_TYPE, FUNC, UnarySequenceFunctionWrapper>(operand,
+            inputPos, result, resultPos, dataPtr);
     }
 };
 
 } // namespace function
 } // namespace kuzu
 
-#include <unordered_map>
+#include <unordered_set>
 
 
 namespace kuzu {
-namespace storage {
+namespace processor {
 
-class Column;
-class MemoryManager;
-
-// Data structures in LocalStorage are not thread-safe.
-// For now, we only support single thread insertions and updates. Once we optimize them with
-// multiple threads, LocalStorage and its related data structures should be reworked to be
-// thread-safe.
-class LocalStorage {
+class ResultSet {
 public:
-    explicit LocalStorage(storage::MemoryManager* mm);
+    ResultSet() : ResultSet(0) {}
+    explicit ResultSet(common::idx_t numDataChunks) : multiplicity{1}, dataChunks(numDataChunks) {}
+    ResultSet(ResultSetDescriptor* resultSetDescriptor, storage::MemoryManager* memoryManager);
 
-    // This function will create the local table data if not exists.
-    LocalTableData* getOrCreateLocalTableData(common::table_id_t tableID,
-        const std::vector<std::unique_ptr<Column>>& columns,
-        common::TableType tableType = common::TableType::NODE,
-        common::ColumnDataFormat dataFormat = common::ColumnDataFormat::REGULAR,
-        common::vector_idx_t dataIdx = 0);
-    LocalTable* getLocalTable(common::table_id_t tableID);
-    // This function will return nullptr if the local table does not exist.
-    LocalTableData* getLocalTableData(common::table_id_t tableID, common::vector_idx_t dataIdx = 0);
-    std::unordered_set<common::table_id_t> getTableIDsWithUpdates();
+    void insert(common::idx_t pos, std::shared_ptr<common::DataChunk> dataChunk) {
+        KU_ASSERT(dataChunks.size() > pos);
+        dataChunks[pos] = std::move(dataChunk);
+    }
 
-private:
-    std::unordered_map<common::table_id_t, std::unique_ptr<LocalTable>> tables;
-    storage::MemoryManager* mm;
+    std::shared_ptr<common::DataChunk> getDataChunk(data_chunk_pos_t dataChunkPos) {
+        return dataChunks[dataChunkPos];
+    }
+    std::shared_ptr<common::ValueVector> getValueVector(const DataPos& dataPos) const {
+        return dataChunks[dataPos.dataChunkPos]->valueVectors[dataPos.valueVectorPos];
+    }
+
+    // Our projection does NOT explicitly remove dataChunk from resultSet. Therefore, caller should
+    // always provide a set of positions when reading from multiple dataChunks.
+    uint64_t getNumTuples(const std::unordered_set<uint32_t>& dataChunksPosInScope) {
+        return getNumTuplesWithoutMultiplicity(dataChunksPosInScope) * multiplicity;
+    }
+
+    uint64_t getNumTuplesWithoutMultiplicity(
+        const std::unordered_set<uint32_t>& dataChunksPosInScope);
+
+public:
+    uint64_t multiplicity;
+    std::vector<std::shared_ptr<common::DataChunk>> dataChunks;
 };
 
-} // namespace storage
+} // namespace processor
 } // namespace kuzu
 
 
 namespace kuzu {
 namespace function {
 
-struct ScalarFunction;
-
-using scalar_compile_func =
+// Evaluate function at compile time, e.g. struct_extraction.
+using scalar_func_compile_exec_t =
     std::function<void(FunctionBindData*, const std::vector<std::shared_ptr<common::ValueVector>>&,
         std::shared_ptr<common::ValueVector>&)>;
-using scalar_exec_func = std::function<void(
-    const std::vector<std::shared_ptr<common::ValueVector>>&, common::ValueVector&, void*)>;
-using scalar_select_func = std::function<bool(
-    const std::vector<std::shared_ptr<common::ValueVector>>&, common::SelectionVector&)>;
-using function_set = std::vector<std::unique_ptr<Function>>;
+// Execute function.
+using scalar_func_exec_t =
+    std::function<void(const std::vector<std::shared_ptr<common::ValueVector>>&,
+        const std::vector<common::SelectionVector*>&, common::ValueVector&,
+        common::SelectionVector*, void*)>;
+// Execute boolean function and write result to selection vector. Fast path for filter.
+using scalar_func_select_t = std::function<bool(
+    const std::vector<std::shared_ptr<common::ValueVector>>&, common::SelectionVector&, void*)>;
 
-struct ScalarFunction final : public BaseScalarFunction {
+struct KUZU_API ScalarFunction : public ScalarOrAggregateFunction {
+    scalar_func_exec_t execFunc = nullptr;
+    scalar_func_select_t selectFunc = nullptr;
+    scalar_func_compile_exec_t compileFunc = nullptr;
 
+    ScalarFunction() = default;
     ScalarFunction(std::string name, std::vector<common::LogicalTypeID> parameterTypeIDs,
-        common::LogicalTypeID returnTypeID, scalar_exec_func execFunc, bool isVarLength = false)
-        : ScalarFunction{std::move(name), std::move(parameterTypeIDs), returnTypeID,
-              std::move(execFunc), nullptr, nullptr, nullptr, isVarLength} {}
-
+        common::LogicalTypeID returnTypeID)
+        : ScalarOrAggregateFunction{std::move(name), std::move(parameterTypeIDs), returnTypeID} {}
     ScalarFunction(std::string name, std::vector<common::LogicalTypeID> parameterTypeIDs,
-        common::LogicalTypeID returnTypeID, scalar_exec_func execFunc,
-        scalar_select_func selectFunc, bool isVarLength = false)
-        : ScalarFunction{std::move(name), std::move(parameterTypeIDs), returnTypeID,
-              std::move(execFunc), std::move(selectFunc), nullptr, nullptr, isVarLength} {}
-
+        common::LogicalTypeID returnTypeID, scalar_func_exec_t execFunc)
+        : ScalarOrAggregateFunction{std::move(name), std::move(parameterTypeIDs), returnTypeID},
+          execFunc{std::move(execFunc)} {}
     ScalarFunction(std::string name, std::vector<common::LogicalTypeID> parameterTypeIDs,
-        common::LogicalTypeID returnTypeID, scalar_exec_func execFunc,
-        scalar_select_func selectFunc, scalar_bind_func bindFunc, bool isVarLength = false)
-        : ScalarFunction{std::move(name), std::move(parameterTypeIDs), returnTypeID,
-              std::move(execFunc), std::move(selectFunc), nullptr, std::move(bindFunc),
-              isVarLength} {}
-
-    ScalarFunction(std::string name, std::vector<common::LogicalTypeID> parameterTypeIDs,
-        common::LogicalTypeID returnTypeID, scalar_exec_func execFunc,
-        scalar_select_func selectFunc, scalar_compile_func compileFunc, scalar_bind_func bindFunc,
-        bool isVarLength = false)
-        : BaseScalarFunction{FunctionType::SCALAR, std::move(name), std::move(parameterTypeIDs),
-              returnTypeID, std::move(bindFunc)},
-          execFunc{std::move(execFunc)}, selectFunc(std::move(selectFunc)),
-          compileFunc{std::move(compileFunc)}, isVarLength{isVarLength} {}
+        common::LogicalTypeID returnTypeID, scalar_func_exec_t execFunc,
+        scalar_func_select_t selectFunc)
+        : ScalarOrAggregateFunction{std::move(name), std::move(parameterTypeIDs), returnTypeID},
+          execFunc{std::move(execFunc)}, selectFunc{std::move(selectFunc)} {}
 
     template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC>
     static void TernaryExecFunction(const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::ValueVector& result, void* /*dataPtr*/ = nullptr) {
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr = nullptr) {
         KU_ASSERT(params.size() == 3);
-        TernaryFunctionExecutor::execute<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC>(
-            *params[0], *params[1], *params[2], result);
+        TernaryFunctionExecutor::executeSwitch<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC,
+            TernaryFunctionWrapper>(*params[0], paramSelVectors[0], *params[1], paramSelVectors[1],
+            *params[2], paramSelVectors[2], result, resultSelVector, dataPtr);
     }
 
     template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC>
     static void TernaryStringExecFunction(
         const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::ValueVector& result, void* /*dataPtr*/ = nullptr) {
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr = nullptr) {
         KU_ASSERT(params.size() == 3);
-        TernaryFunctionExecutor::executeString<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC>(
-            *params[0], *params[1], *params[2], result);
+        TernaryFunctionExecutor::executeSwitch<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC,
+            TernaryStringFunctionWrapper>(*params[0], paramSelVectors[0], *params[1],
+            paramSelVectors[1], *params[2], paramSelVectors[2], result, resultSelVector, dataPtr);
+    }
+
+    template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC>
+    static void TernaryRegexExecFunction(
+        const std::vector<std::shared_ptr<common::ValueVector>>& params,
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
+        TernaryFunctionExecutor::executeSwitch<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC,
+            TernaryRegexFunctionWrapper>(*params[0], paramSelVectors[0], *params[1],
+            paramSelVectors[1], *params[2], paramSelVectors[2], result, resultSelVector, dataPtr);
+    }
+
+    template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC>
+    static void TernaryExecListStructFunction(
+        const std::vector<std::shared_ptr<common::ValueVector>>& params,
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr = nullptr) {
+        KU_ASSERT(params.size() == 3);
+        TernaryFunctionExecutor::executeSwitch<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC,
+            TernaryListFunctionWrapper>(*params[0], paramSelVectors[0], *params[1],
+            paramSelVectors[1], *params[2], paramSelVectors[2], result, resultSelVector, dataPtr);
     }
 
     template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC>
     static void BinaryExecFunction(const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::ValueVector& result, void* /*dataPtr*/ = nullptr) {
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* /*dataPtr*/ = nullptr) {
         KU_ASSERT(params.size() == 2);
-        BinaryFunctionExecutor::execute<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC>(
-            *params[0], *params[1], result);
+        BinaryFunctionExecutor::execute<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC>(*params[0],
+            paramSelVectors[0], *params[1], paramSelVectors[1], result, resultSelVector);
     }
 
     template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC>
     static void BinaryStringExecFunction(
         const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::ValueVector& result, void* /*dataPtr*/ = nullptr) {
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr = nullptr) {
         KU_ASSERT(params.size() == 2);
-        BinaryFunctionExecutor::executeString<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC>(
-            *params[0], *params[1], result);
+        BinaryFunctionExecutor::executeSwitch<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC,
+            BinaryStringFunctionWrapper>(*params[0], paramSelVectors[0], *params[1],
+            paramSelVectors[1], result, resultSelVector, dataPtr);
+    }
+
+    template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC>
+    static void BinaryExecListStructFunction(
+        const std::vector<std::shared_ptr<common::ValueVector>>& params,
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr = nullptr) {
+        KU_ASSERT(params.size() == 2);
+        BinaryFunctionExecutor::executeSwitch<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC,
+            BinaryListStructFunctionWrapper>(*params[0], paramSelVectors[0], *params[1],
+            paramSelVectors[1], result, resultSelVector, dataPtr);
+    }
+
+    template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC>
+    static void BinaryExecWithBindData(
+        const std::vector<std::shared_ptr<common::ValueVector>>& params,
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
+        KU_ASSERT(params.size() == 2);
+        BinaryFunctionExecutor::executeSwitch<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC,
+            BinaryMapCreationFunctionWrapper>(*params[0], paramSelVectors[0], *params[1],
+            paramSelVectors[1], result, resultSelVector, dataPtr);
     }
 
     template<typename LEFT_TYPE, typename RIGHT_TYPE, typename FUNC>
     static bool BinarySelectFunction(
         const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::SelectionVector& selVector) {
+        common::SelectionVector& selVector, void* dataPtr) {
         KU_ASSERT(params.size() == 2);
-        return BinaryFunctionExecutor::select<LEFT_TYPE, RIGHT_TYPE, FUNC>(
-            *params[0], *params[1], selVector);
+        return BinaryFunctionExecutor::select<LEFT_TYPE, RIGHT_TYPE, FUNC>(*params[0], *params[1],
+            selVector, dataPtr);
+    }
+
+    template<typename LEFT_TYPE, typename RIGHT_TYPE, typename FUNC>
+    static bool BinarySelectWithBindData(
+        const std::vector<std::shared_ptr<common::ValueVector>>& params,
+        common::SelectionVector& selVector, void* dataPtr) {
+        KU_ASSERT(params.size() == 2);
+        return BinaryFunctionExecutor::select<LEFT_TYPE, RIGHT_TYPE, FUNC,
+            BinarySelectWithBindDataWrapper>(*params[0], *params[1], selVector, dataPtr);
     }
 
     template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC,
         typename EXECUTOR = UnaryFunctionExecutor>
     static void UnaryExecFunction(const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::ValueVector& result, void* dataPtr) {
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
         KU_ASSERT(params.size() == 1);
         EXECUTOR::template executeSwitch<OPERAND_TYPE, RESULT_TYPE, FUNC, UnaryFunctionWrapper>(
-            *params[0], result, dataPtr);
+            *params[0], paramSelVectors[0], result, resultSelVector, dataPtr);
+    }
+
+    template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC>
+    static void UnarySequenceExecFunction(
+        const std::vector<std::shared_ptr<common::ValueVector>>& params,
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
+        KU_ASSERT(params.size() == 1);
+        UnaryFunctionExecutor::executeSequence<OPERAND_TYPE, RESULT_TYPE, FUNC>(*params[0],
+            paramSelVectors[0], result, resultSelVector, dataPtr);
     }
 
     template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC>
     static void UnaryStringExecFunction(
         const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::ValueVector& result, void* /*dataPtr*/ = nullptr) {
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* /*dataPtr*/ = nullptr) {
         KU_ASSERT(params.size() == 1);
         UnaryFunctionExecutor::executeSwitch<OPERAND_TYPE, RESULT_TYPE, FUNC,
-            UnaryStringFunctionWrapper>(*params[0], result, nullptr /* dataPtr */);
+            UnaryStringFunctionWrapper>(*params[0], paramSelVectors[0], result, resultSelVector,
+            nullptr /* dataPtr */);
     }
 
     template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC,
         typename EXECUTOR = UnaryFunctionExecutor>
     static void UnaryCastStringExecFunction(
         const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::ValueVector& result, void* dataPtr) {
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
         KU_ASSERT(params.size() == 1);
         EXECUTOR::template executeSwitch<OPERAND_TYPE, RESULT_TYPE, FUNC,
-            UnaryCastStringFunctionWrapper>(*params[0], result, dataPtr);
+            UnaryCastStringFunctionWrapper>(*params[0], paramSelVectors[0], result, resultSelVector,
+            dataPtr);
     }
 
     template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC,
         typename EXECUTOR = UnaryFunctionExecutor>
     static void UnaryCastExecFunction(
         const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::ValueVector& result, void* dataPtr) {
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
         KU_ASSERT(params.size() == 1);
         EXECUTOR::template executeSwitch<OPERAND_TYPE, RESULT_TYPE, FUNC, UnaryCastFunctionWrapper>(
-            *params[0], result, dataPtr);
+            *params[0], paramSelVectors[0], result, resultSelVector, dataPtr);
     }
 
     template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC,
         typename EXECUTOR = UnaryFunctionExecutor>
-    static void UnaryRdfVariantCastExecFunction(
+    static void UnaryCastUnionExecFunction(
         const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::ValueVector& result, void* /*dataPtr*/ = nullptr) {
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
         KU_ASSERT(params.size() == 1);
         EXECUTOR::template executeSwitch<OPERAND_TYPE, RESULT_TYPE, FUNC,
-            UnaryRdfVariantCastFunctionWrapper>(*params[0], result, nullptr /* dataPtr */);
+            UnaryCastUnionFunctionWrapper>(*params[0], paramSelVectors[0], result, resultSelVector,
+            dataPtr);
+    }
+
+    template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC,
+        typename EXECUTOR = UnaryFunctionExecutor>
+    static void UnaryExecNestedTypeFunction(
+        const std::vector<std::shared_ptr<common::ValueVector>>& params,
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
+        KU_ASSERT(params.size() == 1);
+        EXECUTOR::template executeSwitch<OPERAND_TYPE, RESULT_TYPE, FUNC,
+            UnaryNestedTypeFunctionWrapper>(*params[0], paramSelVectors[0], result, resultSelVector,
+            dataPtr);
     }
 
     template<typename OPERAND_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void UnaryExecNestedTypeFunction(
+    static void UnaryExecStructFunction(
         const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::ValueVector& result, void* /*dataPtr*/ = nullptr) {
+        const std::vector<common::SelectionVector*>& paramSelVectors, common::ValueVector& result,
+        common::SelectionVector* resultSelVector, void* dataPtr) {
         KU_ASSERT(params.size() == 1);
         UnaryFunctionExecutor::executeSwitch<OPERAND_TYPE, RESULT_TYPE, FUNC,
-            UnaryNestedTypeFunctionWrapper>(*params[0], result, nullptr /* dataPtr */);
+            UnaryStructFunctionWrapper>(*params[0], paramSelVectors[0], result, resultSelVector,
+            dataPtr);
     }
 
     template<typename RESULT_TYPE, typename FUNC>
-    static void ConstExecFunction(const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::ValueVector& result, void* /*dataPtr*/ = nullptr) {
-        KU_ASSERT(params.empty());
-        (void)params;
-        ConstFunctionExecutor::execute<RESULT_TYPE, FUNC>(result);
+    static void NullaryExecFunction(
+        [[maybe_unused]] const std::vector<std::shared_ptr<common::ValueVector>>& params,
+        [[maybe_unused]] const std::vector<common::SelectionVector*>& paramSelVectors,
+        common::ValueVector& result, common::SelectionVector* resultSelVector,
+        void* /*dataPtr*/ = nullptr) {
+        KU_ASSERT(params.empty() && paramSelVectors.empty());
+        ConstFunctionExecutor::execute<RESULT_TYPE, FUNC>(result, *resultSelVector);
     }
 
     template<typename RESULT_TYPE, typename FUNC>
-    static void PoniterExecFunction(const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::ValueVector& result, void* dataPtr) {
-        KU_ASSERT(params.empty());
-        (void)params;
-        PointerFunctionExecutor::execute<RESULT_TYPE, FUNC>(result, dataPtr);
+    static void NullaryAuxilaryExecFunction(
+        [[maybe_unused]] const std::vector<std::shared_ptr<common::ValueVector>>& params,
+        [[maybe_unused]] const std::vector<common::SelectionVector*>& paramSelVectors,
+        common::ValueVector& result, common::SelectionVector* resultSelVector, void* dataPtr) {
+        KU_ASSERT(params.empty() && paramSelVectors.empty());
+        PointerFunctionExecutor::execute<RESULT_TYPE, FUNC>(result, *resultSelVector, dataPtr);
     }
 
-    template<typename A_TYPE, typename B_TYPE, typename C_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void TernaryExecListStructFunction(
-        const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::ValueVector& result, void* /*dataPtr*/ = nullptr) {
-        KU_ASSERT(params.size() == 3);
-        TernaryFunctionExecutor::executeListStruct<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE, FUNC>(
-            *params[0], *params[1], *params[2], result);
-    }
-
-    template<typename LEFT_TYPE, typename RIGHT_TYPE, typename RESULT_TYPE, typename FUNC>
-    static void BinaryExecListStructFunction(
-        const std::vector<std::shared_ptr<common::ValueVector>>& params,
-        common::ValueVector& result, void* /*dataPtr*/ = nullptr) {
-        KU_ASSERT(params.size() == 2);
-        BinaryFunctionExecutor::executeListStruct<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNC>(
-            *params[0], *params[1], result);
-    }
-
-    std::unique_ptr<Function> copy() const override {
+    virtual std::unique_ptr<ScalarFunction> copy() const {
         return std::make_unique<ScalarFunction>(*this);
     }
-
-    scalar_exec_func execFunc;
-    scalar_select_func selectFunc;
-    scalar_compile_func compileFunc;
-    // Currently we only one variable-length function which is list creation. The expectation is
-    // that all parameters must have the same type as parameterTypes[0].
-    bool isVarLength;
 };
 
 } // namespace function
 } // namespace kuzu
 
-#include <memory>
 
-
+namespace kuzu::common {
+class Profiler;
+class NumericMetric;
+class TimeMetric;
+} // namespace kuzu::common
 namespace kuzu {
-namespace storage {
-class LocalStorage;
-class MemoryManager;
-} // namespace storage
-namespace transaction {
-class TransactionManager;
+namespace processor {
+struct ExecutionContext;
 
-enum class TransactionType : uint8_t { READ_ONLY, WRITE };
-constexpr uint64_t INVALID_TRANSACTION_ID = UINT64_MAX;
+using physical_op_id = uint32_t;
 
-class Transaction {
-    friend class TransactionManager;
-
-public:
-    Transaction(TransactionType transactionType, uint64_t transactionID, storage::MemoryManager* mm)
-        : type{transactionType}, ID{transactionID} {
-        localStorage = std::make_unique<storage::LocalStorage>(mm);
-    }
-
-    constexpr explicit Transaction(TransactionType transactionType) noexcept
-        : type{transactionType}, ID{INVALID_TRANSACTION_ID} {}
-
-public:
-    inline TransactionType getType() const { return type; }
-    inline bool isReadOnly() const { return TransactionType::READ_ONLY == type; }
-    inline bool isWriteTransaction() const { return TransactionType::WRITE == type; }
-    inline uint64_t getID() const { return ID; }
-    inline storage::LocalStorage* getLocalStorage() { return localStorage.get(); }
-
-    static inline std::unique_ptr<Transaction> getDummyWriteTrx() {
-        return std::make_unique<Transaction>(TransactionType::WRITE);
-    }
-    static inline std::unique_ptr<Transaction> getDummyReadOnlyTrx() {
-        return std::make_unique<Transaction>(TransactionType::READ_ONLY);
-    }
-
-private:
-    TransactionType type;
-    // TODO(Guodong): add type transaction_id_t.
-    uint64_t ID;
-    std::unique_ptr<storage::LocalStorage> localStorage;
+enum class PhysicalOperatorType : uint8_t {
+    ALTER,
+    AGGREGATE,
+    AGGREGATE_FINALIZE,
+    AGGREGATE_SCAN,
+    ATTACH_DATABASE,
+    BATCH_INSERT,
+    COPY_TO,
+    CREATE_MACRO,
+    CREATE_SEQUENCE,
+    CREATE_TABLE,
+    CREATE_TYPE,
+    CROSS_PRODUCT,
+    DETACH_DATABASE,
+    DELETE_,
+    DROP,
+    DUMMY_SINK,
+    DUMMY_SIMPLE_SINK,
+    EMPTY_RESULT,
+    EXPORT_DATABASE,
+    FILTER,
+    FLATTEN,
+    HASH_JOIN_BUILD,
+    HASH_JOIN_PROBE,
+    IMPORT_DATABASE,
+    INDEX_LOOKUP,
+    INSERT,
+    INTERSECT_BUILD,
+    INTERSECT,
+    INSTALL_EXTENSION,
+    LIMIT,
+    LOAD_EXTENSION,
+    MERGE,
+    MULTIPLICITY_REDUCER,
+    PARTITIONER,
+    PATH_PROPERTY_PROBE,
+    PRIMARY_KEY_SCAN_NODE_TABLE,
+    PROJECTION,
+    PROFILE,
+    RECURSIVE_EXTEND,
+    RESULT_COLLECTOR,
+    SCAN_NODE_TABLE,
+    SCAN_REL_TABLE,
+    SEMI_MASKER,
+    SET_PROPERTY,
+    SKIP,
+    STANDALONE_CALL,
+    TABLE_FUNCTION_CALL,
+    TOP_K,
+    TOP_K_SCAN,
+    TRANSACTION,
+    ORDER_BY,
+    ORDER_BY_MERGE,
+    ORDER_BY_SCAN,
+    UNION_ALL_SCAN,
+    UNWIND,
+    USE_DATABASE,
+    UNINSTALL_EXTENSION,
 };
 
-static Transaction DUMMY_READ_TRANSACTION = Transaction(TransactionType::READ_ONLY);
-static Transaction DUMMY_WRITE_TRANSACTION = Transaction(TransactionType::WRITE);
+class PhysicalOperator;
+struct PhysicalOperatorUtils {
+    static std::string operatorToString(const PhysicalOperator* physicalOp);
+    KUZU_API static std::string operatorTypeToString(PhysicalOperatorType operatorType);
+};
 
-} // namespace transaction
+struct OperatorMetrics {
+    common::TimeMetric& executionTime;
+    common::NumericMetric& numOutputTuple;
+
+    OperatorMetrics(common::TimeMetric& executionTime, common::NumericMetric& numOutputTuple)
+        : executionTime{executionTime}, numOutputTuple{numOutputTuple} {}
+};
+
+using physical_op_vector_t = std::vector<std::unique_ptr<PhysicalOperator>>;
+
+class KUZU_API PhysicalOperator {
+public:
+    // Leaf operator
+    PhysicalOperator(PhysicalOperatorType operatorType, physical_op_id id,
+        std::unique_ptr<OPPrintInfo> printInfo)
+        : id{id}, operatorType{operatorType}, resultSet(nullptr), printInfo{std::move(printInfo)} {}
+    // Unary operator
+    PhysicalOperator(PhysicalOperatorType operatorType, std::unique_ptr<PhysicalOperator> child,
+        physical_op_id id, std::unique_ptr<OPPrintInfo> printInfo);
+    // Binary operator
+    PhysicalOperator(PhysicalOperatorType operatorType, std::unique_ptr<PhysicalOperator> left,
+        std::unique_ptr<PhysicalOperator> right, physical_op_id id,
+        std::unique_ptr<OPPrintInfo> printInfo);
+    PhysicalOperator(PhysicalOperatorType operatorType, physical_op_vector_t children,
+        physical_op_id id, std::unique_ptr<OPPrintInfo> printInfo);
+
+    virtual ~PhysicalOperator() = default;
+
+    physical_op_id getOperatorID() const { return id; }
+
+    PhysicalOperatorType getOperatorType() const { return operatorType; }
+
+    virtual bool isSource() const { return false; }
+    virtual bool isSink() const { return false; }
+    virtual bool isParallel() const { return true; }
+
+    void addChild(std::unique_ptr<PhysicalOperator> op) { children.push_back(std::move(op)); }
+    PhysicalOperator* getChild(common::idx_t idx) const { return children[idx].get(); }
+    common::idx_t getNumChildren() const { return children.size(); }
+    std::unique_ptr<PhysicalOperator> moveUnaryChild();
+
+    // Global state is initialized once.
+    void initGlobalState(ExecutionContext* context);
+    // Local state is initialized for each thread.
+    void initLocalState(ResultSet* resultSet, ExecutionContext* context);
+
+    bool getNextTuple(ExecutionContext* context);
+
+    virtual void finalize(ExecutionContext* context);
+
+    std::unordered_map<std::string, std::string> getProfilerKeyValAttributes(
+        common::Profiler& profiler) const;
+    std::vector<std::string> getProfilerAttributes(common::Profiler& profiler) const;
+
+    const OPPrintInfo* getPrintInfo() const { return printInfo.get(); }
+
+    virtual std::unique_ptr<PhysicalOperator> copy() = 0;
+
+    virtual double getProgress(ExecutionContext* context) const;
+
+    template<class TARGET>
+    TARGET* ptrCast() {
+        return common::ku_dynamic_cast<TARGET*>(this);
+    }
+    template<class TARGET>
+    const TARGET& constCast() {
+        return common::ku_dynamic_cast<const TARGET&>(*this);
+    }
+
+protected:
+    virtual void initGlobalStateInternal(ExecutionContext* /*context*/) {}
+    virtual void initLocalStateInternal(ResultSet* /*resultSet_*/, ExecutionContext* /*context*/) {}
+    // Return false if no more tuples to pull, otherwise return true
+    virtual bool getNextTuplesInternal(ExecutionContext* context) = 0;
+
+    std::string getTimeMetricKey() const { return "time-" + std::to_string(id); }
+    std::string getNumTupleMetricKey() const { return "numTuple-" + std::to_string(id); }
+
+    void registerProfilingMetrics(common::Profiler* profiler);
+
+    double getExecutionTime(common::Profiler& profiler) const;
+    uint64_t getNumOutputTuples(common::Profiler& profiler) const;
+
+    virtual void finalizeInternal(ExecutionContext* /*context*/) {}
+
+protected:
+    physical_op_id id;
+    std::unique_ptr<OperatorMetrics> metrics;
+    PhysicalOperatorType operatorType;
+
+    physical_op_vector_t children;
+    ResultSet* resultSet;
+    std::unique_ptr<OPPrintInfo> printInfo;
+};
+
+} // namespace processor
 } // namespace kuzu
 
 
@@ -6689,8 +8094,8 @@ struct UnaryUDFExecutor {
 
 struct BinaryUDFExecutor {
     template<class LEFT_TYPE, class RIGHT_TYPE, class RESULT_TYPE>
-    static inline void operation(
-        LEFT_TYPE& left, RIGHT_TYPE& right, RESULT_TYPE& result, void* udfFunc) {
+    static inline void operation(LEFT_TYPE& left, RIGHT_TYPE& right, RESULT_TYPE& result,
+        void* udfFunc) {
         typedef RESULT_TYPE (*binary_udf_func)(LEFT_TYPE, RIGHT_TYPE);
         auto binaryUDFFunc = (binary_udf_func)udfFunc;
         result = binaryUDFFunc(left, right);
@@ -6699,8 +8104,8 @@ struct BinaryUDFExecutor {
 
 struct TernaryUDFExecutor {
     template<class A_TYPE, class B_TYPE, class C_TYPE, class RESULT_TYPE>
-    static inline void operation(
-        A_TYPE& a, B_TYPE& b, C_TYPE& c, RESULT_TYPE& result, void* udfFunc) {
+    static inline void operation(A_TYPE& a, B_TYPE& b, C_TYPE& c, RESULT_TYPE& result,
+        void* udfFunc) {
         typedef RESULT_TYPE (*ternary_udf_func)(A_TYPE, B_TYPE, C_TYPE);
         auto ternaryUDFFunc = (ternary_udf_func)udfFunc;
         result = ternaryUDFFunc(a, b, c);
@@ -6710,34 +8115,13 @@ struct TernaryUDFExecutor {
 struct UDF {
     template<typename T>
     static bool templateValidateType(const common::LogicalTypeID& type) {
-        switch (type) {
-        case common::LogicalTypeID::BOOL:
-            return std::is_same<T, bool>();
-        case common::LogicalTypeID::INT16:
-            return std::is_same<T, int16_t>();
-        case common::LogicalTypeID::INT32:
-            return std::is_same<T, int32_t>();
-        case common::LogicalTypeID::INT64:
-            return std::is_same<T, int64_t>();
-        case common::LogicalTypeID::FLOAT:
-            return std::is_same<T, float>();
-        case common::LogicalTypeID::DOUBLE:
-            return std::is_same<T, double>();
-        case common::LogicalTypeID::DATE:
-            return std::is_same<T, int32_t>();
-        case common::LogicalTypeID::TIMESTAMP_NS:
-        case common::LogicalTypeID::TIMESTAMP_MS:
-        case common::LogicalTypeID::TIMESTAMP_SEC:
-        case common::LogicalTypeID::TIMESTAMP_TZ:
-        case common::LogicalTypeID::TIMESTAMP:
-            return std::is_same<T, int64_t>();
-        case common::LogicalTypeID::STRING:
-            return std::is_same<T, common::ku_string_t>();
-        case common::LogicalTypeID::BLOB:
-            return std::is_same<T, common::blob_t>();
-        default:
-            KU_UNREACHABLE;
-        }
+        auto logicalType = common::LogicalType{type};
+        auto physicalType = logicalType.getPhysicalType();
+        auto physicalTypeMatch = common::TypeUtils::visit(physicalType,
+            []<typename T1>(T1) { return std::is_same<T, T1>::value; });
+        auto logicalTypeMatch = common::TypeUtils::visit(logicalType,
+            []<typename T1>(T1) { return std::is_same<T, T1>::value; });
+        return logicalTypeMatch || physicalTypeMatch;
     }
 
     template<typename T>
@@ -6749,13 +8133,36 @@ struct UDF {
     }
 
     template<typename RESULT_TYPE, typename... Args>
-    static function::scalar_exec_func createUnaryExecFunc(RESULT_TYPE (*/*udfFunc*/)(Args...),
+    static function::scalar_func_exec_t createEmptyParameterExecFunc(RESULT_TYPE (*)(Args...),
+        const std::vector<common::LogicalTypeID>&) {
+        KU_UNREACHABLE;
+    }
+
+    template<typename RESULT_TYPE>
+    static function::scalar_func_exec_t createEmptyParameterExecFunc(RESULT_TYPE (*udfFunc)(),
+        const std::vector<common::LogicalTypeID>&) {
+        KU_UNUSED(udfFunc); // Disable compiler warnings.
+        return [udfFunc](
+                   [[maybe_unused]] const std::vector<std::shared_ptr<common::ValueVector>>& params,
+                   [[maybe_unused]] const std::vector<common::SelectionVector*>& paramSelVectors,
+                   common::ValueVector& result, common::SelectionVector* resultSelVector,
+                   void* /*dataPtr*/ = nullptr) -> void {
+            KU_ASSERT(params.empty() && paramSelVectors.empty());
+            for (auto i = 0u; i < resultSelVector->getSelSize(); ++i) {
+                auto resultPos = (*resultSelVector)[i];
+                result.copyFromValue(resultPos, common::Value(udfFunc()));
+            }
+        };
+    }
+
+    template<typename RESULT_TYPE, typename... Args>
+    static function::scalar_func_exec_t createUnaryExecFunc(RESULT_TYPE (* /*udfFunc*/)(Args...),
         const std::vector<common::LogicalTypeID>& /*parameterTypes*/) {
         KU_UNREACHABLE;
     }
 
     template<typename RESULT_TYPE, typename OPERAND_TYPE>
-    static function::scalar_exec_func createUnaryExecFunc(RESULT_TYPE (*udfFunc)(OPERAND_TYPE),
+    static function::scalar_func_exec_t createUnaryExecFunc(RESULT_TYPE (*udfFunc)(OPERAND_TYPE),
         const std::vector<common::LogicalTypeID>& parameterTypes) {
         if (parameterTypes.size() != 1) {
             throw common::CatalogException{
@@ -6763,24 +8170,27 @@ struct UDF {
                 std::to_string(parameterTypes.size()) + "."};
         }
         validateType<OPERAND_TYPE>(parameterTypes[0]);
-        function::scalar_exec_func execFunc =
-            [=](const std::vector<std::shared_ptr<common::ValueVector>>& params,
-                common::ValueVector& result, void* /*dataPtr*/ = nullptr) -> void {
+        function::scalar_func_exec_t execFunc =
+            [udfFunc](const std::vector<std::shared_ptr<common::ValueVector>>& params,
+                const std::vector<common::SelectionVector*>& paramSelVectors,
+                common::ValueVector& result, common::SelectionVector* resultSelVector,
+                void* /*dataPtr*/ = nullptr) -> void {
             KU_ASSERT(params.size() == 1);
-            UnaryFunctionExecutor::executeUDF<OPERAND_TYPE, RESULT_TYPE, UnaryUDFExecutor>(
-                *params[0], result, (void*)udfFunc);
+            UnaryFunctionExecutor::executeSwitch<OPERAND_TYPE, RESULT_TYPE, UnaryUDFExecutor,
+                UnaryUDFFunctionWrapper>(*params[0], paramSelVectors[0], result, resultSelVector,
+                (void*)udfFunc);
         };
         return execFunc;
     }
 
     template<typename RESULT_TYPE, typename... Args>
-    static function::scalar_exec_func createBinaryExecFunc(RESULT_TYPE (*/*udfFunc*/)(Args...),
+    static function::scalar_func_exec_t createBinaryExecFunc(RESULT_TYPE (* /*udfFunc*/)(Args...),
         const std::vector<common::LogicalTypeID>& /*parameterTypes*/) {
         KU_UNREACHABLE;
     }
 
     template<typename RESULT_TYPE, typename LEFT_TYPE, typename RIGHT_TYPE>
-    static function::scalar_exec_func createBinaryExecFunc(
+    static function::scalar_func_exec_t createBinaryExecFunc(
         RESULT_TYPE (*udfFunc)(LEFT_TYPE, RIGHT_TYPE),
         const std::vector<common::LogicalTypeID>& parameterTypes) {
         if (parameterTypes.size() != 2) {
@@ -6790,24 +8200,27 @@ struct UDF {
         }
         validateType<LEFT_TYPE>(parameterTypes[0]);
         validateType<RIGHT_TYPE>(parameterTypes[1]);
-        function::scalar_exec_func execFunc =
-            [=](const std::vector<std::shared_ptr<common::ValueVector>>& params,
-                common::ValueVector& result, void* /*dataPtr*/ = nullptr) -> void {
+        function::scalar_func_exec_t execFunc =
+            [udfFunc](const std::vector<std::shared_ptr<common::ValueVector>>& params,
+                const std::vector<common::SelectionVector*>& paramSelVectors,
+                common::ValueVector& result, common::SelectionVector* resultSelVector,
+                void* /*dataPtr*/ = nullptr) -> void {
             KU_ASSERT(params.size() == 2);
-            BinaryFunctionExecutor::executeUDF<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE,
-                BinaryUDFExecutor>(*params[0], *params[1], result, (void*)udfFunc);
+            BinaryFunctionExecutor::executeSwitch<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE,
+                BinaryUDFExecutor, BinaryUDFFunctionWrapper>(*params[0], paramSelVectors[0],
+                *params[1], paramSelVectors[1], result, resultSelVector, (void*)udfFunc);
         };
         return execFunc;
     }
 
     template<typename RESULT_TYPE, typename... Args>
-    static function::scalar_exec_func createTernaryExecFunc(RESULT_TYPE (*/*udfFunc*/)(Args...),
+    static function::scalar_func_exec_t createTernaryExecFunc(RESULT_TYPE (* /*udfFunc*/)(Args...),
         const std::vector<common::LogicalTypeID>& /*parameterTypes*/) {
         KU_UNREACHABLE;
     }
 
     template<typename RESULT_TYPE, typename A_TYPE, typename B_TYPE, typename C_TYPE>
-    static function::scalar_exec_func createTernaryExecFunc(
+    static function::scalar_func_exec_t createTernaryExecFunc(
         RESULT_TYPE (*udfFunc)(A_TYPE, B_TYPE, C_TYPE),
         std::vector<common::LogicalTypeID> parameterTypes) {
         if (parameterTypes.size() != 3) {
@@ -6818,21 +8231,27 @@ struct UDF {
         validateType<A_TYPE>(parameterTypes[0]);
         validateType<B_TYPE>(parameterTypes[1]);
         validateType<C_TYPE>(parameterTypes[2]);
-        function::scalar_exec_func execFunc =
-            [=](const std::vector<std::shared_ptr<common::ValueVector>>& params,
-                common::ValueVector& result, void* /*dataPtr*/ = nullptr) -> void {
+        function::scalar_func_exec_t execFunc =
+            [udfFunc](const std::vector<std::shared_ptr<common::ValueVector>>& params,
+                const std::vector<common::SelectionVector*>& paramSelVectors,
+                common::ValueVector& result, common::SelectionVector* resultSelVector,
+                void* /*dataPtr*/ = nullptr) -> void {
             KU_ASSERT(params.size() == 3);
-            TernaryFunctionExecutor::executeUDF<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE,
-                TernaryUDFExecutor>(*params[0], *params[1], *params[2], result, (void*)udfFunc);
+            TernaryFunctionExecutor::executeSwitch<A_TYPE, B_TYPE, C_TYPE, RESULT_TYPE,
+                TernaryUDFExecutor, TernaryUDFFunctionWrapper>(*params[0], paramSelVectors[0],
+                *params[1], paramSelVectors[1], *params[2], paramSelVectors[2], result,
+                resultSelVector, (void*)udfFunc);
         };
         return execFunc;
     }
 
     template<typename TR, typename... Args>
-    static scalar_exec_func getScalarExecFunc(
-        TR (*udfFunc)(Args...), std::vector<common::LogicalTypeID> parameterTypes) {
+    static scalar_func_exec_t getScalarExecFunc(TR (*udfFunc)(Args...),
+        std::vector<common::LogicalTypeID> parameterTypes) {
         constexpr auto numArgs = sizeof...(Args);
         switch (numArgs) {
+        case 0:
+            return createEmptyParameterExecFunc<TR, Args...>(udfFunc, std::move(parameterTypes));
         case 1:
             return createUnaryExecFunc<TR, Args...>(udfFunc, std::move(parameterTypes));
         case 2:
@@ -6848,12 +8267,24 @@ struct UDF {
     static common::LogicalTypeID getParameterType() {
         if (std::is_same<T, bool>()) {
             return common::LogicalTypeID::BOOL;
+        } else if (std::is_same<T, int8_t>()) {
+            return common::LogicalTypeID::INT8;
         } else if (std::is_same<T, int16_t>()) {
             return common::LogicalTypeID::INT16;
         } else if (std::is_same<T, int32_t>()) {
             return common::LogicalTypeID::INT32;
         } else if (std::is_same<T, int64_t>()) {
             return common::LogicalTypeID::INT64;
+        } else if (std::is_same<T, common::int128_t>()) {
+            return common::LogicalTypeID::INT128;
+        } else if (std::is_same<T, uint8_t>()) {
+            return common::LogicalTypeID::UINT8;
+        } else if (std::is_same<T, uint16_t>()) {
+            return common::LogicalTypeID::UINT16;
+        } else if (std::is_same<T, uint32_t>()) {
+            return common::LogicalTypeID::UINT32;
+        } else if (std::is_same<T, uint64_t>()) {
+            return common::LogicalTypeID::UINT64;
         } else if (std::is_same<T, float>()) {
             return common::LogicalTypeID::FLOAT;
         } else if (std::is_same<T, double>()) {
@@ -6879,7 +8310,9 @@ struct UDF {
     template<typename... Args>
     static std::vector<common::LogicalTypeID> getParameterTypes() {
         std::vector<common::LogicalTypeID> parameterTypes;
-        getParameterTypesRecursive<Args...>(parameterTypes);
+        if constexpr (sizeof...(Args) > 0) {
+            getParameterTypesRecursive<Args...>(parameterTypes);
+        }
         return parameterTypes;
     }
 
@@ -6891,31 +8324,31 @@ struct UDF {
             KU_UNREACHABLE;
         }
         validateType<TR>(returnType);
-        scalar_exec_func scalarExecFunc = getScalarExecFunc<TR, Args...>(udfFunc, parameterTypes);
-        definitions.push_back(std::make_unique<function::ScalarFunction>(
-            std::move(name), std::move(parameterTypes), returnType, std::move(scalarExecFunc)));
+        scalar_func_exec_t scalarExecFunc = getScalarExecFunc<TR, Args...>(udfFunc, parameterTypes);
+        definitions.push_back(std::make_unique<function::ScalarFunction>(std::move(name),
+            std::move(parameterTypes), returnType, std::move(scalarExecFunc)));
         return definitions;
     }
 
     template<typename TR, typename... Args>
     static function_set getFunction(std::string name, TR (*udfFunc)(Args...)) {
-        return getFunction<TR, Args...>(
-            std::move(name), udfFunc, getParameterTypes<Args...>(), getParameterType<TR>());
+        return getFunction<TR, Args...>(std::move(name), udfFunc, getParameterTypes<Args...>(),
+            getParameterType<TR>());
     }
 
     template<typename TR, typename... Args>
-    static function_set getVectorizedFunction(std::string name, scalar_exec_func execFunc) {
+    static function_set getVectorizedFunction(std::string name, scalar_func_exec_t execFunc) {
         function_set definitions;
         definitions.push_back(std::make_unique<function::ScalarFunction>(std::move(name),
             getParameterTypes<Args...>(), getParameterType<TR>(), std::move(execFunc)));
         return definitions;
     }
 
-    static function_set getVectorizedFunction(std::string name, scalar_exec_func execFunc,
+    static function_set getVectorizedFunction(std::string name, scalar_func_exec_t execFunc,
         std::vector<common::LogicalTypeID> parameterTypes, common::LogicalTypeID returnType) {
         function_set definitions;
-        definitions.push_back(std::make_unique<function::ScalarFunction>(
-            std::move(name), std::move(parameterTypes), returnType, std::move(execFunc)));
+        definitions.push_back(std::make_unique<function::ScalarFunction>(std::move(name),
+            std::move(parameterTypes), returnType, std::move(execFunc)));
         return definitions;
     }
 };
@@ -6923,77 +8356,237 @@ struct UDF {
 } // namespace function
 } // namespace kuzu
 
+#include <mutex>
+
 
 namespace kuzu {
-namespace main {
-class Database;
+namespace binder {
+class BoundReadingClause;
 }
+namespace parser {
+struct YieldVariable;
+class ParsedExpression;
+} // namespace parser
 
-namespace transaction {
+namespace planner {
+class LogicalOperator;
+class LogicalPlan;
+class Planner;
+} // namespace planner
 
-/**
- * If the connection is in AUTO_COMMIT mode any query over the connection will be wrapped around
- * a transaction and committed (even if the query is READ_ONLY).
- * If the connection is in MANUAL transaction mode, which happens only if an application
- * manually begins a transaction (see below), then an application has to manually commit or
- * rollback the transaction by calling commit() or rollback().
- *
- * AUTO_COMMIT is the default mode when a Connection is created. If an application calls
- * begin[ReadOnly/Write]Transaction at any point, the mode switches to MANUAL. This creates
- * an "active transaction" in the connection. When a connection is in MANUAL mode and the
- * active transaction is rolled back or committed, then the active transaction is removed (so
- * the connection no longer has an active transaction) and the mode automatically switches
- * back to AUTO_COMMIT.
- * Note: When a Connection object is deconstructed, if the connection has an active (manual)
- * transaction, then the active transaction is rolled back.
- */
-enum class TransactionMode : uint8_t { AUTO = 0, MANUAL = 1 };
+namespace processor {
+struct ExecutionContext;
+class PlanMapper;
+} // namespace processor
 
-class TransactionContext {
-public:
-    explicit TransactionContext(main::Database* database);
-    ~TransactionContext();
+namespace function {
 
-    inline bool isAutoTransaction() const { return mode == TransactionMode::AUTO; }
+struct TableFuncBindInput;
+struct TableFuncBindData;
 
-    void beginReadTransaction();
-    void beginWriteTransaction();
-    void beginAutoTransaction(bool readOnlyStatement);
-    void validateManualTransaction(bool allowActiveTransaction, bool readOnlyStatement);
-
-    void commit();
-    void rollback();
-    void commitSkipCheckPointing();
-    void rollbackSkipCheckPointing();
-
-    inline TransactionMode getTransactionMode() const { return mode; }
-    inline bool hasActiveTransaction() const { return activeTransaction != nullptr; }
-    inline Transaction* getActiveTransaction() const { return activeTransaction.get(); }
-
-private:
-    void commitInternal(bool skipCheckPointing);
-    void rollbackInternal(bool skipCheckPointing);
-
-private:
-    void beginTransactionInternal(TransactionType transactionType);
-
-private:
+// Shared state
+struct KUZU_API TableFuncSharedState {
+    common::row_idx_t numRows = 0;
+    // This for now is only used for QueryHNSWIndex.
+    // TODO(Guodong): This is not a good way to pass semiMasks to QueryHNSWIndex function.
+    // However, to avoid function specific logic when we handle semi mask in mapper, so we can move
+    // HNSW into an extension, we have to let semiMasks be owned by a base class.
+    common::NodeOffsetMaskMap semiMasks;
     std::mutex mtx;
-    main::Database* database;
-    TransactionMode mode;
-    std::unique_ptr<Transaction> activeTransaction;
+
+    explicit TableFuncSharedState() = default;
+    explicit TableFuncSharedState(common::row_idx_t numRows) : numRows{numRows} {}
+    virtual ~TableFuncSharedState() = default;
+    virtual uint64_t getNumRows() const { return numRows; }
+
+    common::table_id_map_t<common::SemiMask*> getSemiMasks() const { return semiMasks.getMasks(); }
+
+    template<class TARGET>
+    TARGET* ptrCast() {
+        return common::ku_dynamic_cast<TARGET*>(this);
+    }
 };
 
-} // namespace transaction
+// Local state
+struct TableFuncLocalState {
+    virtual ~TableFuncLocalState() = default;
+
+    template<class TARGET>
+    TARGET* ptrCast() {
+        return common::ku_dynamic_cast<TARGET*>(this);
+    }
+};
+
+// Execution input
+struct TableFuncInput {
+    TableFuncBindData* bindData;
+    TableFuncLocalState* localState;
+    TableFuncSharedState* sharedState;
+    processor::ExecutionContext* context;
+
+    TableFuncInput() = default;
+    TableFuncInput(TableFuncBindData* bindData, TableFuncLocalState* localState,
+        TableFuncSharedState* sharedState, processor::ExecutionContext* context)
+        : bindData{bindData}, localState{localState}, sharedState{sharedState}, context{context} {}
+    DELETE_COPY_DEFAULT_MOVE(TableFuncInput);
+};
+
+// Execution output.
+// We might want to merge this with TableFuncLocalState. Also not all table function output vectors
+// in a single dataChunk, e.g. FTableScan. In future, if we have more cases, we should consider
+// make TableFuncOutput pure virtual.
+struct TableFuncOutput {
+    common::DataChunk dataChunk;
+
+    explicit TableFuncOutput(common::DataChunk dataChunk) : dataChunk{std::move(dataChunk)} {}
+    virtual ~TableFuncOutput() = default;
+
+    void resetState();
+    void setOutputSize(common::offset_t size) const;
+};
+
+struct KUZU_API TableFuncInitSharedStateInput final {
+    TableFuncBindData* bindData;
+    processor::ExecutionContext* context;
+
+    TableFuncInitSharedStateInput(TableFuncBindData* bindData, processor::ExecutionContext* context)
+        : bindData{bindData}, context{context} {}
+};
+
+// Init local state
+struct TableFuncInitLocalStateInput {
+    TableFuncSharedState& sharedState;
+    TableFuncBindData& bindData;
+    main::ClientContext* clientContext;
+
+    TableFuncInitLocalStateInput(TableFuncSharedState& sharedState, TableFuncBindData& bindData,
+        main::ClientContext* clientContext)
+        : sharedState{sharedState}, bindData{bindData}, clientContext{clientContext} {}
+};
+
+// Init output
+struct TableFuncInitOutputInput {
+    std::vector<processor::DataPos> outColumnPositions;
+    processor::ResultSet& resultSet;
+
+    TableFuncInitOutputInput(std::vector<processor::DataPos> outColumnPositions,
+        processor::ResultSet& resultSet)
+        : outColumnPositions{std::move(outColumnPositions)}, resultSet{resultSet} {}
+};
+
+using table_func_bind_t = std::function<std::unique_ptr<TableFuncBindData>(main::ClientContext*,
+    const TableFuncBindInput*)>;
+using table_func_t =
+    std::function<common::offset_t(const TableFuncInput&, TableFuncOutput& output)>;
+using table_func_init_shared_t =
+    std::function<std::shared_ptr<TableFuncSharedState>(const TableFuncInitSharedStateInput&)>;
+using table_func_init_local_t =
+    std::function<std::unique_ptr<TableFuncLocalState>(const TableFuncInitLocalStateInput&)>;
+using table_func_init_output_t =
+    std::function<std::unique_ptr<TableFuncOutput>(const TableFuncInitOutputInput&)>;
+using table_func_can_parallel_t = std::function<bool()>;
+using table_func_progress_t = std::function<double(TableFuncSharedState* sharedState)>;
+using table_func_finalize_t =
+    std::function<void(const processor::ExecutionContext*, TableFuncSharedState*)>;
+using table_func_rewrite_t =
+    std::function<std::string(main::ClientContext&, const TableFuncBindData& bindData)>;
+using table_func_get_logical_plan_t =
+    std::function<void(planner::Planner*, const binder::BoundReadingClause&,
+        std::vector<std::shared_ptr<binder::Expression>>, planner::LogicalPlan&)>;
+using table_func_get_physical_plan_t = std::function<std::unique_ptr<processor::PhysicalOperator>(
+    processor::PlanMapper*, const planner::LogicalOperator*)>;
+using table_func_infer_input_types =
+    std::function<std::vector<common::LogicalType>(const binder::expression_vector&)>;
+
+struct KUZU_API TableFunction final : Function {
+    table_func_t tableFunc = nullptr;
+    table_func_bind_t bindFunc = nullptr;
+    table_func_init_shared_t initSharedStateFunc = nullptr;
+    table_func_init_local_t initLocalStateFunc = nullptr;
+    table_func_init_output_t initOutputFunc = nullptr;
+    table_func_can_parallel_t canParallelFunc = [] { return true; };
+    table_func_progress_t progressFunc = [](TableFuncSharedState*) { return 0.0; };
+    table_func_finalize_t finalizeFunc = [](auto, auto) {};
+    table_func_rewrite_t rewriteFunc = nullptr;
+    table_func_get_logical_plan_t getLogicalPlanFunc = getLogicalPlan;
+    table_func_get_physical_plan_t getPhysicalPlanFunc = getPhysicalPlan;
+    table_func_infer_input_types inferInputTypes = nullptr;
+
+    TableFunction() {}
+    TableFunction(std::string name, std::vector<common::LogicalTypeID> inputTypes)
+        : Function{std::move(name), std::move(inputTypes)} {}
+    ~TableFunction() override;
+    TableFunction(const TableFunction&) = default;
+    TableFunction& operator=(const TableFunction& other) = default;
+    DEFAULT_BOTH_MOVE(TableFunction);
+
+    std::string signatureToString() const override {
+        return common::LogicalTypeUtils::toString(parameterTypeIDs);
+    }
+
+    std::unique_ptr<TableFunction> copy() const { return std::make_unique<TableFunction>(*this); }
+
+    // Init local state func
+    static std::unique_ptr<TableFuncLocalState> initEmptyLocalState(
+        const TableFuncInitLocalStateInput& input);
+    // Init shared state func
+    static std::unique_ptr<TableFuncSharedState> initEmptySharedState(
+        const TableFuncInitSharedStateInput& input);
+    // Init output func
+    static std::unique_ptr<TableFuncOutput> initSingleDataChunkScanOutput(
+        const TableFuncInitOutputInput& input);
+    // Utility functions
+    static std::vector<std::string> extractYieldVariables(const std::vector<std::string>& names,
+        const std::vector<parser::YieldVariable>& yieldVariables);
+    // Get logical plan func
+    static void getLogicalPlan(planner::Planner* planner,
+        const binder::BoundReadingClause& boundReadingClause, binder::expression_vector predicates,
+        planner::LogicalPlan& plan);
+    // Get physical plan func
+    static std::unique_ptr<processor::PhysicalOperator> getPhysicalPlan(
+        processor::PlanMapper* planMapper, const planner::LogicalOperator* logicalOp);
+    // Table func
+    static common::offset_t emptyTableFunc(const TableFuncInput& input, TableFuncOutput& output);
+};
+
+} // namespace function
+} // namespace kuzu
+
+
+namespace kuzu {
+namespace function {
+
+struct ScanReplacementData {
+    TableFunction func;
+    TableFuncBindInput bindInput;
+};
+
+using scan_replace_handle_t = uint8_t*;
+using handle_lookup_func_t = std::function<std::vector<scan_replace_handle_t>(const std::string&)>;
+using scan_replace_func_t =
+    std::function<std::unique_ptr<ScanReplacementData>(std::span<scan_replace_handle_t>)>;
+
+struct ScanReplacement {
+    explicit ScanReplacement(handle_lookup_func_t lookupFunc, scan_replace_func_t replaceFunc)
+        : lookupFunc(std::move(lookupFunc)), replaceFunc{std::move(replaceFunc)} {}
+
+    handle_lookup_func_t lookupFunc;
+    scan_replace_func_t replaceFunc;
+};
+
+} // namespace function
 } // namespace kuzu
 
 #include <atomic>
-#include <cstdint>
-#include <functional>
 #include <memory>
+#include <mutex>
+#include <optional>
 
 
 namespace kuzu {
+namespace parser {
+class StandaloneCallRewriter;
+} // namespace parser
 
 namespace binder {
 class Binder;
@@ -7002,10 +8595,31 @@ class ExpressionBinder;
 
 namespace common {
 class RandomEngine;
+class TaskScheduler;
+class ProgressBar;
+} // namespace common
+
+namespace extension {
+class ExtensionManager;
+} // namespace extension
+
+namespace processor {
+class ImportDB;
+class TableFunctionCall;
+} // namespace processor
+
+namespace graph {
+class GraphEntrySet;
 }
 
 namespace main {
+struct DBConfig;
 class Database;
+class DatabaseManager;
+class AttachedKuzuDatabase;
+struct SpillToDiskSetting;
+struct ExtensionOption;
+class EmbeddedShell;
 
 struct ActiveQuery {
     explicit ActiveQuery();
@@ -7015,88 +8629,201 @@ struct ActiveQuery {
     void reset();
 };
 
-using replace_func_t = std::function<std::unique_ptr<common::Value>(common::Value*)>;
-
 /**
- * @brief Contain client side configuration. We make profiler associated per query, so profiler is
- * not maintained in client context.
+ * @brief Contain client side configuration. We make profiler associated per query, so the profiler
+ * is not maintained in the client context.
  */
-class ClientContext {
+class KUZU_API ClientContext {
     friend class Connection;
     friend class binder::Binder;
     friend class binder::ExpressionBinder;
-    friend class testing::TinySnbDDLTest;
-    friend class testing::TinySnbCopyCSVTransactionTest;
-    friend struct ThreadsSetting;
-    friend struct TimeoutSetting;
-    friend struct VarLengthExtendMaxDepthSetting;
-    friend struct EnableSemiMaskSetting;
-    friend struct HomeDirectorySetting;
-    friend struct FileSearchPathSetting;
+    friend class processor::ImportDB;
+    friend class processor::TableFunctionCall;
+    friend class parser::StandaloneCallRewriter;
+    friend struct SpillToDiskSetting;
+    friend class EmbeddedShell;
+    friend class extension::ExtensionManager;
 
 public:
     explicit ClientContext(Database* database);
+    ~ClientContext();
 
-    inline void interrupt() { activeQuery.interrupted = true; }
+    // Client config
+    const ClientConfig* getClientConfig() const { return &clientConfig; }
+    ClientConfig* getClientConfigUnsafe() { return &clientConfig; }
+    const DBConfig* getDBConfig() const { return &dbConfig; }
+    DBConfig* getDBConfigUnsafe() { return &dbConfig; }
+    common::Value getCurrentSetting(const std::string& optionName) const;
+    // Timer and timeout
+    void interrupt() { activeQuery.interrupted = true; }
+    bool interrupted() const { return activeQuery.interrupted; }
+    bool hasTimeout() const { return clientConfig.timeoutInMS != 0; }
+    void setQueryTimeOut(uint64_t timeoutInMS);
+    uint64_t getQueryTimeOut() const;
+    void startTimer();
+    uint64_t getTimeoutRemainingInMS() const;
+    void resetActiveQuery() { activeQuery.reset(); }
 
-    bool isInterrupted() const { return activeQuery.interrupted; }
+    // Parallelism
+    void setMaxNumThreadForExec(uint64_t numThreads);
+    uint64_t getMaxNumThreadForExec() const;
 
-    inline bool isTimeOutEnabled() const { return timeoutInMS != 0; }
+    // Transaction.
+    transaction::Transaction* getTransaction() const;
+    transaction::TransactionContext* getTransactionContext() const;
 
-    inline uint64_t getTimeoutRemainingInMS() {
-        KU_ASSERT(isTimeOutEnabled());
-        auto elapsed = activeQuery.timer.getElapsedTimeInMS();
-        return elapsed >= timeoutInMS ? 0 : timeoutInMS - elapsed;
-    }
+    // Progress bar
+    common::ProgressBar* getProgressBar() const;
 
-    inline bool isEnableSemiMask() const { return enableSemiMask; }
-
-    void startTimingIfEnabled();
-
-    KUZU_API common::Value getCurrentSetting(const std::string& optionName);
-
-    transaction::Transaction* getTx() const;
-    KUZU_API transaction::TransactionContext* getTransactionContext() const;
-
-    inline bool hasReplaceFunc() { return replaceFunc != nullptr; }
-    inline void setReplaceFunc(replace_func_t func) { replaceFunc = func; }
-
-    KUZU_API void setExtensionOption(std::string name, common::Value value);
-
-    common::RandomEngine* getRandomEngine() { return randomEngine.get(); }
-
-    common::VirtualFileSystem* getVFSUnsafe() const;
-
+    // Replace function.
+    void addScanReplace(function::ScanReplacement scanReplacement);
+    std::unique_ptr<function::ScanReplacementData> tryReplaceByName(
+        const std::string& objectName) const;
+    std::unique_ptr<function::ScanReplacementData> tryReplaceByHandle(
+        function::scan_replace_handle_t handle) const;
+    // Extension
+    void setExtensionOption(std::string name, common::Value value);
+    const ExtensionOption* getExtensionOption(std::string optionName) const;
     std::string getExtensionDir() const;
 
-    KUZU_API Database* getDatabase() const { return database; }
-    storage::StorageManager* getStorageManager();
-    storage::MemoryManager* getMemoryManager();
-    catalog::Catalog* getCatalog();
+    // Database component getters.
+    std::string getDatabasePath() const;
+    Database* getDatabase() const { return localDatabase; }
+    common::TaskScheduler* getTaskScheduler() const;
+    DatabaseManager* getDatabaseManager() const;
+    storage::StorageManager* getStorageManager() const;
+    storage::MemoryManager* getMemoryManager() const;
+    extension::ExtensionManager* getExtensionManager() const;
+    storage::WAL* getWAL() const;
+    catalog::Catalog* getCatalog() const;
+    transaction::TransactionManager* getTransactionManagerUnsafe() const;
+    common::VirtualFileSystem* getVFSUnsafe() const;
+    common::RandomEngine* getRandomEngine() const;
+    bool isInMemory() const;
 
-    KUZU_API std::string getEnvVariable(const std::string& name);
+    static std::string getEnvVariable(const std::string& name);
+    static std::string getUserHomeDir();
+
+    void setDefaultDatabase(AttachedKuzuDatabase* defaultDatabase_);
+    bool hasDefaultDatabase() const;
+    void setUseInternalCatalogEntry(bool useInternalCatalogEntry) {
+        this->useInternalCatalogEntry_ = useInternalCatalogEntry;
+    }
+    bool useInternalCatalogEntry() const {
+        return clientConfig.enableInternalCatalog ? true : useInternalCatalogEntry_;
+    }
+
+    void addScalarFunction(std::string name, function::function_set definitions);
+    void removeScalarFunction(const std::string& name);
+
+    processor::WarningContext& getWarningContextUnsafe();
+    const processor::WarningContext& getWarningContext() const;
+
+    graph::GraphEntrySet& getGraphEntrySetUnsafe();
+
+    const graph::GraphEntrySet& getGraphEntrySet() const;
+
+    void cleanUp();
+
+    // Query.
+    std::unique_ptr<PreparedStatement> prepareWithParams(std::string_view query,
+        std::unordered_map<std::string, std::unique_ptr<common::Value>> inputParams = {});
+    std::unique_ptr<QueryResult> executeWithParams(PreparedStatement* preparedStatement,
+        std::unordered_map<std::string, std::unique_ptr<common::Value>> inputParams,
+        std::optional<uint64_t> queryID = std::nullopt);
+    std::unique_ptr<QueryResult> query(std::string_view queryStatement,
+        std::optional<uint64_t> queryID = std::nullopt);
 
 private:
-    inline void resetActiveQuery() { activeQuery.reset(); }
+    struct TransactionHelper {
+        enum class TransactionCommitAction : uint8_t {
+            COMMIT_IF_NEW,
+            COMMIT_IF_AUTO,
+            COMMIT_NEW_OR_AUTO,
+            NOT_COMMIT
+        };
+        static bool commitIfNew(TransactionCommitAction action) {
+            return action == TransactionCommitAction::COMMIT_IF_NEW ||
+                   action == TransactionCommitAction::COMMIT_NEW_OR_AUTO;
+        }
+        static bool commitIfAuto(TransactionCommitAction action) {
+            return action == TransactionCommitAction::COMMIT_IF_AUTO ||
+                   action == TransactionCommitAction::COMMIT_NEW_OR_AUTO;
+        }
+        static TransactionCommitAction getAction(bool commitIfNew, bool commitIfAuto);
+        static void runFuncInTransaction(transaction::TransactionContext& context,
+            const std::function<void()>& fun, bool readOnlyStatement, bool isTransactionStatement,
+            TransactionCommitAction action);
+    };
 
-    uint64_t numThreadsForExecution;
+    static std::unique_ptr<QueryResult> queryResultWithError(std::string_view errMsg);
+    static std::unique_ptr<PreparedStatement> preparedStatementWithError(std::string_view errMsg);
+    static void bindParametersNoLock(const PreparedStatement* preparedStatement,
+        const std::unordered_map<std::string, std::unique_ptr<common::Value>>& inputParams);
+    void validateTransaction(const PreparedStatement& preparedStatement) const;
+
+    std::vector<std::shared_ptr<parser::Statement>> parseQuery(std::string_view query);
+
+    std::unique_ptr<PreparedStatement> prepareNoLock(
+        std::shared_ptr<parser::Statement> parsedStatement, bool shouldCommitNewTransaction,
+        std::optional<std::unordered_map<std::string, std::shared_ptr<common::Value>>> inputParams =
+            std::nullopt);
+
+    template<typename T, typename... Args>
+    std::unique_ptr<QueryResult> executeWithParams(PreparedStatement* preparedStatement,
+        std::unordered_map<std::string, std::unique_ptr<common::Value>> params,
+        std::pair<std::string, T> arg, std::pair<std::string, Args>... args) {
+        auto name = arg.first;
+        auto val = std::make_unique<common::Value>((T)arg.second);
+        params.insert({name, std::move(val)});
+        return executeWithParams(preparedStatement, std::move(params), args...);
+    }
+
+    std::unique_ptr<QueryResult> executeNoLock(PreparedStatement* preparedStatement,
+        std::optional<uint64_t> queryID = std::nullopt);
+
+    std::unique_ptr<QueryResult> queryNoLock(std::string_view query,
+        std::optional<uint64_t> queryID = std::nullopt);
+
+    bool canExecuteWriteQuery() const;
+
+    std::unique_ptr<QueryResult> handleFailedExecution(std::optional<uint64_t> queryID,
+        const std::exception& e) const;
+
+    // Client side configurable settings.
+    ClientConfig clientConfig;
+    // Database configurable settings.
+    DBConfig& dbConfig;
+    // Current query.
     ActiveQuery activeQuery;
-    uint64_t timeoutInMS;
-    uint32_t varLengthExtendMaxDepth;
+    // Transaction context.
     std::unique_ptr<transaction::TransactionContext> transactionContext;
-    bool enableSemiMask;
-    replace_func_t replaceFunc;
+    // Replace external object as pointer Value;
+    std::vector<function::ScanReplacement> scanReplacements;
+    // Extension configurable settings.
     std::unordered_map<std::string, common::Value> extensionOptionValues;
+    // Random generator for UUID.
     std::unique_ptr<common::RandomEngine> randomEngine;
-    std::string homeDirectory;
-    std::string fileSearchPath;
-    Database* database;
+    // Local database.
+    Database* localDatabase;
+    // Remote database.
+    AttachedKuzuDatabase* remoteDatabase;
+    // Progress bar.
+    std::unique_ptr<common::ProgressBar> progressBar;
+    // Warning information
+    processor::WarningContext warningContext;
+    // Graph entries
+    std::unique_ptr<graph::GraphEntrySet> graphEntrySet;
+    std::mutex mtx;
+    // Whether the query can access internal tables/sequences or not.
+    bool useInternalCatalogEntry_ = false;
+    // Whether the transaction should be rolled back on destruction. If the parent database is
+    // closed, the rollback should be prevented or it will SEGFAULT.
+    bool preventTransactionRollbackOnDestruction = false;
 };
 
 } // namespace main
 } // namespace kuzu
-
-#include <mutex>
 
 
 namespace kuzu {
@@ -7107,12 +8834,12 @@ namespace main {
  * Multiple connections can connect to the same Database instance in a multi-threaded environment.
  */
 class Connection {
-    friend class kuzu::testing::BaseGraphTest;
-    friend class kuzu::testing::PrivateGraphTest;
-    friend class kuzu::testing::TestHelper;
-    friend class kuzu::testing::TestRunner;
-    friend class kuzu::benchmark::Benchmark;
-    friend class kuzu::testing::TinySnbDDLTest;
+    friend class testing::BaseGraphTest;
+    friend class testing::PrivateGraphTest;
+    friend class testing::TestHelper;
+    friend class benchmark::Benchmark;
+    friend class ConnectionExecuteAsyncWorker;
+    friend class ConnectionQueryAsyncWorker;
 
 public:
     /**
@@ -7141,12 +8868,26 @@ public:
      * @return the result of the query.
      */
     KUZU_API std::unique_ptr<QueryResult> query(std::string_view query);
+
     /**
      * @brief Prepares the given query and returns the prepared statement.
      * @param query The query to prepare.
      * @return the prepared statement.
      */
     KUZU_API std::unique_ptr<PreparedStatement> prepare(std::string_view query);
+
+    /**
+     * @brief Prepares the given query and returns the prepared statement.
+     * @param query The query to prepare.
+     * @param inputParams The parameter pack where each arg is a pair with the first element
+     * being parameter name and second element being parameter value. The only parameters that are
+     * relevant during prepare are ones that will be substituted with a scan source. Any other
+     * parameters will either be ignored or will cause an error to be thrown.
+     * @return the prepared statement.
+     */
+    KUZU_API std::unique_ptr<PreparedStatement> prepareWithParams(std::string_view query,
+        std::unordered_map<std::string, std::unique_ptr<common::Value>> inputParams);
+
     /**
      * @brief Executes the given prepared statement with args and returns the result.
      * @param preparedStatement The prepared statement to execute.
@@ -7155,8 +8896,8 @@ public:
      * @return the result of the query.
      */
     template<typename... Args>
-    inline std::unique_ptr<QueryResult> execute(
-        PreparedStatement* preparedStatement, std::pair<std::string, Args>... args) {
+    inline std::unique_ptr<QueryResult> execute(PreparedStatement* preparedStatement,
+        std::pair<std::string, Args>... args) {
         std::unordered_map<std::string, std::unique_ptr<common::Value>> inputParameters;
         return executeWithParams(preparedStatement, std::move(inputParameters), args...);
     }
@@ -7180,79 +8921,51 @@ public:
      */
     KUZU_API void setQueryTimeOut(uint64_t timeoutInMS);
 
-    /**
-     * @brief gets the query timeout value of the current connection. A value of zero (the default)
-     * disables the timeout.
-     */
-    KUZU_API uint64_t getQueryTimeOut();
-
+    // Note: this function throws exception if creating scalar function fails.
     template<typename TR, typename... Args>
     void createScalarFunction(std::string name, TR (*udfFunc)(Args...)) {
-        auto autoTrx = startUDFAutoTrx(clientContext->getTransactionContext());
-        auto nameCopy = std::string(name);
-        addScalarFunction(
-            std::move(nameCopy), function::UDF::getFunction<TR, Args...>(std::move(name), udfFunc));
-        commitUDFTrx(autoTrx);
+        addScalarFunction(name, function::UDF::getFunction<TR, Args...>(name, udfFunc));
     }
 
+    // Note: this function throws exception if creating scalar function fails.
     template<typename TR, typename... Args>
     void createScalarFunction(std::string name, std::vector<common::LogicalTypeID> parameterTypes,
         common::LogicalTypeID returnType, TR (*udfFunc)(Args...)) {
-        auto autoTrx = startUDFAutoTrx(clientContext->getTransactionContext());
-        auto nameCopy = std::string(name);
-        addScalarFunction(
-            std::move(nameCopy), function::UDF::getFunction<TR, Args...>(std::move(name), udfFunc,
-                                     std::move(parameterTypes), returnType));
-        commitUDFTrx(autoTrx);
+        addScalarFunction(name, function::UDF::getFunction<TR, Args...>(name, udfFunc,
+                                    std::move(parameterTypes), returnType));
     }
 
+    void addUDFFunctionSet(std::string name, function::function_set func) {
+        addScalarFunction(name, std::move(func));
+    }
+
+    void removeUDFFunction(std::string name) { removeScalarFunction(name); }
+
     template<typename TR, typename... Args>
-    void createVectorizedFunction(std::string name, function::scalar_exec_func scalarFunc) {
-        auto autoTrx = startUDFAutoTrx(clientContext->getTransactionContext());
-        auto nameCopy = std::string(name);
-        addScalarFunction(std::move(nameCopy), function::UDF::getVectorizedFunction<TR, Args...>(
-                                                   std::move(name), std::move(scalarFunc)));
-        commitUDFTrx(autoTrx);
+    void createVectorizedFunction(std::string name, function::scalar_func_exec_t scalarFunc) {
+        addScalarFunction(name,
+            function::UDF::getVectorizedFunction<TR, Args...>(name, std::move(scalarFunc)));
     }
 
     void createVectorizedFunction(std::string name,
         std::vector<common::LogicalTypeID> parameterTypes, common::LogicalTypeID returnType,
-        function::scalar_exec_func scalarFunc) {
-        auto autoTrx = startUDFAutoTrx(clientContext->getTransactionContext());
-        auto nameCopy = std::string(name);
-        addScalarFunction(
-            std::move(nameCopy), function::UDF::getVectorizedFunction(std::move(name),
-                                     std::move(scalarFunc), std::move(parameterTypes), returnType));
-        commitUDFTrx(autoTrx);
+        function::scalar_func_exec_t scalarFunc) {
+        addScalarFunction(name, function::UDF::getVectorizedFunction(name, std::move(scalarFunc),
+                                    std::move(parameterTypes), returnType));
     }
 
-    inline void setReplaceFunc(replace_func_t replaceFunc) {
-        clientContext->setReplaceFunc(std::move(replaceFunc));
-    }
-
-    inline ClientContext* getClientContext() { return clientContext.get(); };
+    ClientContext* getClientContext() { return clientContext.get(); };
 
 private:
-    std::unique_ptr<QueryResult> query(
-        std::string_view query, std::string_view encodedJoin, bool enumerateAllPlans = true);
-
     std::unique_ptr<QueryResult> queryResultWithError(std::string_view errMsg);
 
     std::unique_ptr<PreparedStatement> preparedStatementWithError(std::string_view errMsg);
-
-    std::vector<std::unique_ptr<parser::Statement>> parseQuery(std::string_view query);
-
-    std::unique_ptr<PreparedStatement> prepareNoLock(parser::Statement* parsedStatement,
-        bool enumerateAllPlans = false, std::string_view joinOrder = std::string_view());
 
     template<typename T, typename... Args>
     std::unique_ptr<QueryResult> executeWithParams(PreparedStatement* preparedStatement,
         std::unordered_map<std::string, std::unique_ptr<common::Value>> params,
         std::pair<std::string, T> arg, std::pair<std::string, Args>... args) {
-        auto name = arg.first;
-        auto val = std::make_unique<common::Value>((T)arg.second);
-        params.insert({name, std::move(val)});
-        return executeWithParams(preparedStatement, std::move(params), args...);
+        return clientContext->executeWithParams(preparedStatement, std::move(params), arg, args...);
     }
 
     void bindParametersNoLock(PreparedStatement* preparedStatement,
@@ -7262,14 +8975,18 @@ private:
         PreparedStatement* preparedStatement, uint32_t planIdx = 0u);
 
     KUZU_API void addScalarFunction(std::string name, function::function_set definitions);
+    KUZU_API void removeScalarFunction(std::string name);
 
-    KUZU_API bool startUDFAutoTrx(transaction::TransactionContext* trx);
-    KUZU_API void commitUDFTrx(bool isAutoCommitTrx);
+    std::unique_ptr<QueryResult> queryWithID(std::string_view query, uint64_t queryID);
+
+    std::unique_ptr<QueryResult> executeWithParamsWithID(PreparedStatement* preparedStatement,
+        std::unordered_map<std::string, std::unique_ptr<common::Value>> inputParams,
+        uint64_t queryID);
 
 private:
     Database* database;
     std::unique_ptr<ClientContext> clientContext;
-    std::mutex mtx;
+    std::shared_ptr<common::DatabaseLifeCycleManager> dbLifeCycleManager;
 };
 
 } // namespace main

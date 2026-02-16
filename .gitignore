@@ -32,3 +32,4 @@ wrapperlib/build/**
 
 **/bin/*
 **/obj/*
+**/TestResults/*

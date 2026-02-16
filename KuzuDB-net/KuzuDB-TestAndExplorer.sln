@@ -12,6 +12,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleAppExample", "Consol
 		{FFFC5493-3AF3-403C-81AE-A4B7C0285DC8} = {FFFC5493-3AF3-403C-81AE-A4B7C0285DC8}
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KuzuDB-ConsoleCore", "KuzuDB-ConsoleCore\KuzuDB-ConsoleCore.csproj", "{84D7426A-35EC-4F92-94E3-C7709A85861C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KuzuDB-Net.Tests", "KuzuDB-Net.Tests\KuzuDB-Net.Tests.csproj", "{C8293A80-160D-DA95-AFBB-166134DA356D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SWIG-Inputs", "SWIG-Inputs", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		..\SWIG-InputFile\kuzu.i = ..\SWIG-InputFile\kuzu.i
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -44,6 +53,22 @@ Global
 		{079FC394-EAC1-4C84-9AFD-487EFB121741}.Release|Any CPU.Build.0 = Release|Any CPU
 		{079FC394-EAC1-4C84-9AFD-487EFB121741}.Release|x64.ActiveCfg = Release|Any CPU
 		{079FC394-EAC1-4C84-9AFD-487EFB121741}.Release|x64.Build.0 = Release|Any CPU
+		{84D7426A-35EC-4F92-94E3-C7709A85861C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{84D7426A-35EC-4F92-94E3-C7709A85861C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{84D7426A-35EC-4F92-94E3-C7709A85861C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{84D7426A-35EC-4F92-94E3-C7709A85861C}.Debug|x64.Build.0 = Debug|Any CPU
+		{84D7426A-35EC-4F92-94E3-C7709A85861C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{84D7426A-35EC-4F92-94E3-C7709A85861C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{84D7426A-35EC-4F92-94E3-C7709A85861C}.Release|x64.ActiveCfg = Release|Any CPU
+		{84D7426A-35EC-4F92-94E3-C7709A85861C}.Release|x64.Build.0 = Release|Any CPU
+		{C8293A80-160D-DA95-AFBB-166134DA356D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C8293A80-160D-DA95-AFBB-166134DA356D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C8293A80-160D-DA95-AFBB-166134DA356D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C8293A80-160D-DA95-AFBB-166134DA356D}.Debug|x64.Build.0 = Debug|Any CPU
+		{C8293A80-160D-DA95-AFBB-166134DA356D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C8293A80-160D-DA95-AFBB-166134DA356D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C8293A80-160D-DA95-AFBB-166134DA356D}.Release|x64.ActiveCfg = Release|Any CPU
+		{C8293A80-160D-DA95-AFBB-166134DA356D}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

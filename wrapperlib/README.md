@@ -1,12 +1,11 @@
+## Purpose
+This folder builds the native `kuzunet.dll` wrapper. End users typically do not need this; use the prebuilt binaries from the repo releases instead.
+
 ## Requirements
-Visual Studio with "Desktop Development with C++" package installed. Cmake and ninja generator. And all of them needed to be added to the PATH in order to have direct access from terminal.
+- Visual Studio with the "Desktop Development with C++" workload
+- CMake and Ninja available in the VS environment
 
-## How to create kuzucsharpwrapper.dll
-
-We create a directory named "build" for to contain output files and enter that directory. After that
-we configure the project with cmake and start compilation with ninja.
-
-Commands to be executed in the "x64 Native Tools Command Prompt".
+## Build (x64 Native Tools Command Prompt)
 ```
 mkdir build
 cd build

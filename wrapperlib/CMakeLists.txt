@@ -1,3 +1,4 @@
+cmake_minimum_required(VERSION 3.3)
 project(kuzunet)
 
 add_library(libkuzu STATIC IMPORTED)
